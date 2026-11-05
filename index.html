@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html,body{height:auto}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>世界時鐘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: quiet header with a single round "+" at top-right; a wrapping grid of clock cards, each holding a row of split-flap tiles. */
+:root {
+  --bg: #e7e9ec;
+  --surface: #f5f6f7;
+  --ink: #1c1f24;
+  --muted: #6b717b;
+  --line: #d3d7dc;
+  --tile: #1d2024;
+  --tile-hi: #26292e;
+  --tile-ink: #f1f0ea;
+  --hinge: #0d0e10;
+  --accent: #c9762e;
+  --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 10px 30px -18px rgba(20,25,35,.35);
+  --font-digit: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif-condensed, sans-serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101113; --surface: #17191c; --ink: #e9e8e3; --muted: #8d939c; --line: #2a2d32;
+    --tile: #24272c; --tile-hi: #2c3035; --tile-ink: #efeee8; --hinge: #0b0c0d; --accent: #e0914a;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -16px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101113; --surface: #17191c; --ink: #e9e8e3; --muted: #8d939c; --line: #2a2d32;
+  --tile: #24272c; --tile-hi: #2c3035; --tile-ink: #efeee8; --hinge: #0b0c0d; --accent: #e0914a;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -16px rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+  min-height: 100%;
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-block: 28px 24px;
+}
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; text-wrap: balance; }
+.local { color: var(--muted); font-size: .82rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+
+.add-btn {
+  flex: none; width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform .2s ease, border-color .2s ease;
+}
+.add-btn:hover { transform: rotate(90deg); border-color: var(--accent); }
+.add-btn:focus-visible, button:focus-visible, input:focus-visible, .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.add-btn svg { width: 20px; height: 20px; }
+
+.grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+}
+
+.card {
+  position: relative; container-type: inline-size;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 18px 20px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 14px; min-width: 0;
+}
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-right: 68px; }
+.place { min-width: 0; }
+.country { font-size: 1.15rem; font-weight: 700; letter-spacing: .06em; line-height: 1.3; overflow-wrap: anywhere; }
+.city { color: var(--muted); font-size: .8rem; letter-spacing: .05em; overflow-wrap: anywhere; }
+.meta { text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+.offset { font-family: var(--font-digit); font-weight: 600; font-size: .95rem; letter-spacing: .08em; color: var(--ink); }
+.rel { color: var(--muted); font-size: .74rem; letter-spacing: .04em; white-space: nowrap; }
+
+.remove {
+  position: absolute; top: 12px; right: 10px;
+  width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--muted); cursor: pointer; display: grid; place-items: center;
+  opacity: .55; transition: opacity .15s, background .15s, color .15s;
+}
+.remove svg { width: 14px; height: 14px; }
+.card.is-local { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.card.is-local .remove, .card.is-local .grip { display: none; }
+.grip {
+  position: absolute; top: 12px; right: 42px;
+  width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--muted); cursor: grab; display: grid; place-items: center;
+  opacity: .55; touch-action: none; transition: opacity .15s, background .15s, color .15s;
+}
+.grip svg { width: 14px; height: 14px; }
+.card:hover .grip, .grip:focus-visible { opacity: 1; }
+.grip:hover { background: var(--bg); color: var(--ink); }
+.card.dragging { z-index: 2; outline: 2px dashed var(--accent); outline-offset: 3px; box-shadow: 0 24px 50px -20px rgba(0,0,0,.45); }
+.card.dragging .grip { opacity: 1; color: var(--accent); cursor: grabbing; }
+body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.card.is-local .card-head { padding-right: 0; }
+.is-local .country::after {
+  content: "本地"; display: inline-block; vertical-align: 2px; margin-left: 8px;
+  font-size: .66rem; font-weight: 500; letter-spacing: .12em; line-height: 1;
+  padding: 4px 7px; border-radius: 999px; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.card:hover .remove, .remove:focus-visible { opacity: 1; }
+.remove:hover { background: var(--bg); color: var(--ink); }
+
+/* flip clock */
+.clock {
+  --d: min(16.5cqi, 4.2rem);
+  font-family: var(--font-digit); font-weight: 600; font-size: var(--d);
+  display: flex; align-items: center; justify-content: center; gap: .07em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.pair { display: flex; gap: .05em; }
+.colon {
+  width: .3em; height: 1.36em; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .3em;
+}
+.colon::before, .colon::after { content: ""; width: .1em; height: .1em; border-radius: 50%; background: var(--accent); }
+.pair.sec { font-size: .72em; align-self: flex-end; }
+
+.flip {
+  position: relative; width: .74em; height: 1.36em; perspective: 4em;
+  color: var(--tile-ink); border-radius: .08em;
+  box-shadow: 0 .04em .08em rgba(0,0,0,.25);
+}
+.half, .leaf {
+  position: absolute; left: 0; right: 0; height: 50%; overflow: hidden;
+  background: var(--tile);
+}
+.half span, .leaf span {
+  position: absolute; left: 0; right: 0; height: 1.36em;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.top, .leaf-top { top: 0; border-radius: .08em .08em 0 0; background: linear-gradient(var(--tile-hi), var(--tile)); }
+.top span, .leaf-top span { top: 0; }
+.bottom, .leaf-bottom { bottom: 0; border-radius: 0 0 .08em .08em; }
+.bottom span, .leaf-bottom span { bottom: 0; }
+.flip::after { /* hinge */
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: .025em; min-height: 1px;
+  background: var(--hinge); transform: translateY(-50%); z-index: 4;
+}
+.leaf { visibility: hidden; z-index: 3; backface-visibility: hidden; }
+.leaf-top { transform-origin: 50% 100%; }
+.leaf-bottom { transform-origin: 50% 0; }
+.flip.go .leaf { visibility: visible; }
+.flip.go .leaf-top { animation: flipTop .3s ease-in forwards; }
+.flip.go .leaf-bottom { transform: rotateX(90deg); animation: flipBottom .3s ease-out .3s forwards; }
+@keyframes flipTop { from { transform: rotateX(0); } to { transform: rotateX(-90deg); } }
+@keyframes flipBottom { from { transform: rotateX(90deg); } to { transform: rotateX(0); } }
+
+.date {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  border-top: 1px solid var(--line); padding-top: 12px;
+  font-size: .86rem; letter-spacing: .05em; font-variant-numeric: tabular-nums;
+}
+.date .dn { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 6px; }
+.dn i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.dn.night i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+
+.empty {
+  grid-column: 1 / -1; text-align: center; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 14px; padding: 48px 16px;
+}
+.empty button { margin-top: 12px; }
+
+/* picker */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(10,12,15,.42);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 6vh) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.sheet {
+  width: min(100%, 520px); max-height: min(78vh, 680px);
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sheet-head { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); }
+.sheet-title { display: flex; justify-content: space-between; align-items: center; }
+.sheet-title h2 { margin: 0; font-size: 1rem; letter-spacing: .1em; }
+.close {
+  width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center;
+}
+.close:hover { background: var(--bg); color: var(--ink); }
+.close svg { width: 16px; height: 16px; }
+#search {
+  width: 100%; font: inherit; font-size: 16px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+#search::placeholder { color: var(--muted); }
+.list { overflow-y: auto; padding: 6px; }
+.group-label { font-size: .72rem; letter-spacing: .14em; color: var(--muted); padding: 12px 10px 4px; }
+.opt {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.opt:hover:not(:disabled) { background: var(--bg); }
+.opt:disabled { cursor: default; opacity: .5; }
+.opt .n { min-width: 0; overflow-wrap: anywhere; }
+.opt .n small { color: var(--muted); margin-left: 8px; font-size: .78rem; }
+.opt .t { flex: none; font-family: var(--font-digit); font-size: 1.05rem; font-weight: 500; letter-spacing: .05em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.opt .t b { color: var(--ink); font-weight: 600; margin-left: 10px; }
+.none { color: var(--muted); padding: 24px 10px; text-align: center; }
+
+.btn {
+  font: inherit; font-size: .86rem; letter-spacing: .06em; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 8px 16px;
+}
+.btn:hover { border-color: var(--accent); }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  background: var(--ink); color: var(--bg); border-radius: 999px;
+  padding: 8px 8px 8px 18px; display: flex; align-items: center; gap: 12px;
+  font-size: .86rem; box-shadow: 0 12px 30px -10px rgba(0,0,0,.4);
+  max-width: calc(100% - 32px);
+}
+.toast button { font: inherit; border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; background: var(--accent); color: #fff; font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flip.go .leaf { visibility: hidden; animation: none; }
+  .add-btn, .add-btn:hover { transition: none; transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>世界時鐘</h1>
+      <div class="local" id="localInfo">本地時間</div>
+    </div>
+    <button class="add-btn" id="addBtn" type="button" aria-label="新增城市" title="新增城市">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg>
+    </button>
+  </header>
+  <main class="grid" id="grid"></main>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <h2 id="pickerTitle">新增城市</h2>
+        <button class="close" id="closeBtn" type="button" aria-label="關閉">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        </button>
+      </div>
+      <input id="search" type="search" placeholder="搜尋國家、城市或時區（例如：日本、London）" autocomplete="off">
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="undoBtn">復原</button></div>
+
+<script>
+(() => {
+  const CITIES = [
+    ["taipei","台灣","台北","Asia/Taipei","taiwan taipei"],
+    ["la","美國","洛杉磯","America/Los_Angeles","usa los angeles la"],
+    ["lima","祕魯","利馬","America/Lima","peru lima"],
+    ["lapaz","玻利維亞","拉巴斯","America/La_Paz","bolivia la paz"],
+    ["mexico","墨西哥","墨西哥城","America/Mexico_City","mexico city"],
+    ["saopaulo","巴西","聖保羅","America/Sao_Paulo","brazil sao paulo"],
+    ["buenosaires","阿根廷","布宜諾斯艾利斯","America/Argentina/Buenos_Aires","argentina buenos aires"],
+    ["santiago","智利","聖地牙哥","America/Santiago","chile santiago"],
+    ["tokyo","日本","東京","Asia/Tokyo","japan tokyo"],
+    ["seoul","韓國","首爾","Asia/Seoul","korea seoul"],
+    ["beijing","中國","北京","Asia/Shanghai","china beijing shanghai"],
+    ["hongkong","香港","香港","Asia/Hong_Kong","hong kong"],
+    ["singapore","新加坡","新加坡","Asia/Singapore","singapore"],
+    ["kualalumpur","馬來西亞","吉隆坡","Asia/Kuala_Lumpur","malaysia kuala lumpur"],
+    ["bangkok","泰國","曼谷","Asia/Bangkok","thailand bangkok"],
+    ["hanoi","越南","河內","Asia/Ho_Chi_Minh","vietnam hanoi"],
+    ["manila","菲律賓","馬尼拉","Asia/Manila","philippines manila"],
+    ["jakarta","印尼","雅加達","Asia/Jakarta","indonesia jakarta"],
+    ["yangon","緬甸","仰光","Asia/Yangon","myanmar yangon"],
+    ["delhi","印度","新德里","Asia/Kolkata","india delhi"],
+    ["kathmandu","尼泊爾","加德滿都","Asia/Kathmandu","nepal kathmandu"],
+    ["dhaka","孟加拉","達卡","Asia/Dhaka","bangladesh dhaka"],
+    ["karachi","巴基斯坦","喀拉蚩","Asia/Karachi","pakistan karachi"],
+    ["dubai","阿聯酋","杜拜","Asia/Dubai","uae dubai"],
+    ["riyadh","沙烏地阿拉伯","利雅德","Asia/Riyadh","saudi arabia riyadh"],
+    ["tehran","伊朗","德黑蘭","Asia/Tehran","iran tehran"],
+    ["jerusalem","以色列","耶路撒冷","Asia/Jerusalem","israel jerusalem tel aviv"],
+    ["istanbul","土耳其","伊斯坦堡","Europe/Istanbul","turkey istanbul"],
+    ["moscow","俄羅斯","莫斯科","Europe/Moscow","russia moscow"],
+    ["london","英國","倫敦","Europe/London","uk england london"],
+    ["dublin","愛爾蘭","都柏林","Europe/Dublin","ireland dublin"],
+    ["lisbon","葡萄牙","里斯本","Europe/Lisbon","portugal lisbon"],
+    ["madrid","西班牙","馬德里","Europe/Madrid","spain madrid"],
+    ["paris","法國","巴黎","Europe/Paris","france paris"],
+    ["berlin","德國","柏林","Europe/Berlin","germany berlin"],
+    ["amsterdam","荷蘭","阿姆斯特丹","Europe/Amsterdam","netherlands amsterdam"],
+    ["zurich","瑞士","蘇黎世","Europe/Zurich","switzerland zurich"],
+    ["rome","義大利","羅馬","Europe/Rome","italy rome"],
+    ["vienna","奧地利","維也納","Europe/Vienna","austria vienna"],
+    ["prague","捷克","布拉格","Europe/Prague","czech prague"],
+    ["warsaw","波蘭","華沙","Europe/Warsaw","poland warsaw"],
+    ["stockholm","瑞典","斯德哥爾摩","Europe/Stockholm","sweden stockholm"],
+    ["helsinki","芬蘭","赫爾辛基","Europe/Helsinki","finland helsinki"],
+    ["athens","希臘","雅典","Europe/Athens","greece athens"],
+    ["reykjavik","冰島","雷克雅維克","Atlantic/Reykjavik","iceland reykjavik"],
+    ["cairo","埃及","開羅","Africa/Cairo","egypt cairo"],
+    ["casablanca","摩洛哥","卡薩布蘭卡","Africa/Casablanca","morocco casablanca"],
+    ["lagos","奈及利亞","拉哥斯","Africa/Lagos","nigeria lagos"],
+    ["nairobi","肯亞","奈洛比","Africa/Nairobi","kenya nairobi"],
+    ["johannesburg","南非","約翰尼斯堡","Africa/Johannesburg","south africa johannesburg"],
+    ["newyork","美國","紐約","America/New_York","usa new york"],
+    ["chicago","美國","芝加哥","America/Chicago","usa chicago"],
+    ["denver","美國","丹佛","America/Denver","usa denver"],
+    ["anchorage","美國","安克拉治","America/Anchorage","usa alaska anchorage"],
+    ["honolulu","美國","檀香山","Pacific/Honolulu","usa hawaii honolulu"],
+    ["toronto","加拿大","多倫多","America/Toronto","canada toronto"],
+    ["vancouver","加拿大","溫哥華","America/Vancouver","canada vancouver"],
+    ["havana","古巴","哈瓦那","America/Havana","cuba havana"],
+    ["panama","巴拿馬","巴拿馬城","America/Panama","panama"],
+    ["bogota","哥倫比亞","波哥大","America/Bogota","colombia bogota"],
+    ["caracas","委內瑞拉","卡拉卡斯","America/Caracas","venezuela caracas"],
+    ["quito","厄瓜多","基多","America/Guayaquil","ecuador quito"],
+    ["asuncion","巴拉圭","亞松森","America/Asuncion","paraguay asuncion"],
+    ["montevideo","烏拉圭","蒙特維多","America/Montevideo","uruguay montevideo"],
+    ["sydney","澳洲","雪梨","Australia/Sydney","australia sydney"],
+    ["perth","澳洲","伯斯","Australia/Perth","australia perth"],
+    ["auckland","紐西蘭","奧克蘭","Pacific/Auckland","new zealand auckland"],
+  ].map(([id, country, city, tz, en]) => ({ id, country, city, tz, en }));
+
+  const DEFAULTS = ["taipei","la","lima","lapaz","mexico","saopaulo","buenosaires","santiago"];
+  const KEY = "worldclock.cities.v1";
+  const byId = new Map(CITIES.map(c => [c.id, c]));
+
+  let allZones = [];
+  try { allZones = Intl.supportedValuesOf("timeZone"); } catch (e) {}
+
+  function resolve(id) {
+    if (byId.has(id)) return byId.get(id);
+    if (id.startsWith("tz:")) {
+      const tz = id.slice(3);
+      try { new Intl.DateTimeFormat("en", { timeZone: tz }); } catch (e) { return null; }
+      const parts = tz.split("/");
+      return { id, country: parts[parts.length - 1].replace(/_/g, " "), city: tz.replace(/_/g, " "), tz, en: tz.toLowerCase() };
+    }
+    return null;
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr.filter(id => resolve(id)); }
+    } catch (e) {}
+    return DEFAULTS.slice();
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(selected)); } catch (e) {} }
+
+  let selected = load();
+
+  // ---- time helpers ----
+  const fmts = new Map();
+  function fmt(tz) {
+    if (!fmts.has(tz)) {
+      fmts.set(tz, {
+        p: new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
+        w: new Intl.DateTimeFormat("zh-TW", { timeZone: tz, weekday: "short" }),
+      });
+    }
+    return fmts.get(tz);
+  }
+  function info(tz, now) {
+    const f = fmt(tz);
+    const o = {};
+    for (const p of f.p.formatToParts(now)) o[p.type] = p.value;
+    const y = +o.year, mo = +o.month, d = +o.day, h = (+o.hour) % 24, mi = +o.minute, s = +o.second;
+    const base = Math.floor(now.getTime() / 1000) * 1000;
+    const offset = Math.round((Date.UTC(y, mo - 1, d, h, mi, s) - base) / 60000);
+    return { y, mo, d, h, mi, s, offset, wd: f.w.format(now) };
+  }
+  const pad = n => String(n).padStart(2, "0");
+  function gmt(min) {
+    const sign = min < 0 ? "−" : "+";
+    const a = Math.abs(min), h = Math.floor(a / 60), m = a % 60;
+    return "UTC" + sign + h + (m ? ":" + pad(m) : "");
+  }
+  function relText(off, localOff, i, li) {
+    const dayDiff = Math.round((Date.UTC(i.y, i.mo - 1, i.d) - Date.UTC(li.y, li.mo - 1, li.d)) / 86400000);
+    const day = dayDiff === 0 ? "今天" : dayDiff === 1 ? "明天" : dayDiff === -1 ? "昨天" : (dayDiff > 0 ? "+" : "") + dayDiff + " 天";
+    const diff = off - localOff;
+    if (diff === 0) return day + "・與本地相同";
+    const a = Math.abs(diff), h = Math.floor(a / 60), m = a % 60;
+    const txt = (h ? h + " 小時" : "") + (m ? (h ? " " : "") + m + " 分" : "");
+    return day + "・" + (diff > 0 ? "快 " : "慢 ") + txt;
+  }
+
+  // ---- flip digit ----
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function makeFlip() {
+    const el = document.createElement("span");
+    el.className = "flip";
+    el.innerHTML = '<span class="half top"><span></span></span><span class="half bottom"><span></span></span><span class="leaf leaf-top"><span></span></span><span class="leaf leaf-bottom"><span></span></span>';
+    const [top, bottom, lt, lb] = el.querySelectorAll(".half > span, .leaf > span");
+    el._v = null;
+    el._set = (v, animate) => {
+      if (v === el._v) return;
+      const old = el._v;
+      el._v = v;
+      if (!animate || old === null || reduce.matches || document.hidden) {
+        el.classList.remove("go");
+        top.textContent = bottom.textContent = v;
+        return;
+      }
+      top.textContent = v; bottom.textContent = old;
+      lt.textContent = old; lb.textContent = v;
+      el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { bottom.textContent = el._v; el.classList.remove("go"); }, 620);
+    };
+    return el;
+  }
+
+  // ---- cards ----
+  const grid = document.getElementById("grid");
+  const cards = new Map();
+
+  function buildCard(c) {
+    const card = document.createElement("article");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="place"><div class="country"></div><div class="city"></div></div>
+        <div class="meta"><div class="offset"></div><div class="rel"></div></div>
+      </div>
+      <button class="grip" type="button"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>
+      <button class="remove" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <div class="clock" role="timer" aria-live="off"></div>
+      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span></div>`;
+    card.querySelector(".country").textContent = c.country;
+    card.querySelector(".city").textContent = c.city === c.country ? c.tz.replace(/_/g, " ") : c.city;
+    const rm = card.querySelector(".remove");
+    rm.setAttribute("aria-label", "移除 " + c.country + " " + c.city);
+    rm.title = "移除";
+    rm.addEventListener("click", () => removeCity(c.id));
+    card.dataset.id = c.id;
+    const grip = card.querySelector(".grip");
+    grip.setAttribute("aria-label", "調整 " + c.country + " 的順序（可用方向鍵）");
+    grip.title = "拖曳以調整順序";
+    grip.addEventListener("pointerdown", e => startDrag(e, card, grip));
+    grip.addEventListener("keydown", e => keyMove(e, card, grip));
+
+    const clock = card.querySelector(".clock");
+    const flips = [];
+    ["h", "m", "s"].forEach((k, idx) => {
+      if (idx) { const col = document.createElement("span"); col.className = "colon"; col.setAttribute("aria-hidden", "true"); clock.appendChild(col); }
+      const pair = document.createElement("span");
+      pair.className = "pair" + (k === "s" ? " sec" : "");
+      pair.setAttribute("aria-hidden", "true");
+      const a = makeFlip(), b = makeFlip();
+      pair.append(a, b); clock.appendChild(pair); flips.push(a, b);
+    });
+    return {
+      card, flips, clock,
+      offset: card.querySelector(".offset"),
+      rel: card.querySelector(".rel"),
+      ymd: card.querySelector(".ymd"),
+      dn: card.querySelector(".dn"),
+      dnText: card.querySelector(".dn > span"),
+      c,
+    };
+  }
+
+  function render() {
+    // Local time always first; the rest keep the user's order (skipping any entry in the same time zone).
+    const order = [localId, ...selected.filter(id => { const c = resolve(id); return c && c.tz !== localTz; })];
+    const keep = new Set(order);
+    for (const [id, r] of cards) if (!keep.has(id)) { r.card.remove(); cards.delete(id); }
+    grid.querySelector(".empty")?.remove();
+    order.forEach(id => {
+      let r = cards.get(id);
+      if (!r) { const c = resolve(id); if (!c) return; r = buildCard(c); cards.set(id, r); }
+      r.card.classList.toggle("is-local", id === localId);
+      grid.appendChild(r.card);
+    });
+    if (order.length <= 1) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML = '<div>除了本地時間，目前沒有其他城市。</div><button class="btn" type="button">新增城市</button>';
+      e.querySelector("button").addEventListener("click", openPicker);
+      grid.appendChild(e);
+    }
+    tick(false);
+  }
+
+  const localInfo = document.getElementById("localInfo");
+  const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } })();
+  const localCity = CITIES.find(c => c.tz === localTz) || resolve("tz:" + localTz) || resolve("tz:UTC");
+  const localId = localCity.id;
+  if (!byId.has(localId)) byId.set(localId, localCity);
+
+  function tick(animate = true) {
+    const now = new Date();
+    const li = info(localTz, now);
+    localInfo.textContent = `本地 ${localTz.replace(/_/g, " ")} · ${gmt(li.offset)}`;
+    for (const r of cards.values()) {
+      const i = info(r.c.tz, now);
+      const digits = pad(i.h) + pad(i.mi) + pad(i.s);
+      r.flips.forEach((f, k) => f._set(digits[k], animate));
+      r.clock.setAttribute("aria-label", `${r.c.country} ${pad(i.h)}:${pad(i.mi)}:${pad(i.s)}`);
+      r.offset.textContent = gmt(i.offset);
+      r.rel.textContent = relText(i.offset, li.offset, i, li);
+      r.ymd.textContent = `${i.y}年${i.mo}月${i.d}日 ${i.wd}`;
+      const day = i.h >= 6 && i.h < 18;
+      r.dn.classList.toggle("night", !day);
+      r.dnText.textContent = day ? "白天" : "夜晚";
+    }
+  }
+  function loop() { tick(true); setTimeout(loop, 1000 - (Date.now() % 1000) + 8); }
+
+  // ---- drag to reorder ----
+  function flip(mutate) {
+    const els = [...grid.querySelectorAll(".card")];
+    const first = new Map(els.map(el => [el, el.getBoundingClientRect()]));
+    mutate();
+    if (reduce.matches) return;
+    els.forEach(el => {
+      const f = first.get(el), l = el.getBoundingClientRect();
+      const dx = f.left - l.left, dy = f.top - l.top;
+      if (dx || dy) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 180, easing: "ease-out" });
+    });
+  }
+  function commitOrder() {
+    const dom = [...grid.querySelectorAll(".card")].map(el => el.dataset.id).filter(id => id !== localId);
+    let k = 0;
+    // keep entries hidden behind the local card (same time zone) in their slots
+    selected = selected.map(id => { const c = resolve(id); return c && c.tz === localTz ? id : dom[k++]; }).filter(Boolean);
+    while (k < dom.length) selected.push(dom[k++]);
+    save();
+  }
+  function startDrag(e, card, grip) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+    card.classList.add("dragging");
+    document.body.classList.add("is-dragging");
+    const move = ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      if (ev.clientY < 70) window.scrollBy(0, -14);
+      else if (ev.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".card");
+      if (!el || el === card || el.classList.contains("is-local") || el.getAnimations().length) return;
+      const after = !!(card.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      flip(() => after ? el.after(card) : el.before(card));
+    };
+    const end = ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      card.classList.remove("dragging");
+      document.body.classList.remove("is-dragging");
+      commitOrder();
+    };
+    // listen on window: moving the card in the DOM drops pointer capture
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+  function keyMove(e, card, grip) {
+    const back = e.key === "ArrowUp" || e.key === "ArrowLeft";
+    const fwd = e.key === "ArrowDown" || e.key === "ArrowRight";
+    if (!back && !fwd) return;
+    e.preventDefault();
+    const sib = back ? card.previousElementSibling : card.nextElementSibling;
+    if (!sib || !sib.classList.contains("card") || sib.classList.contains("is-local")) return;
+    flip(() => back ? sib.before(card) : sib.after(card));
+    commitOrder();
+    grip.focus();
+  }
+
+  // ---- remove + undo ----
+  const toast = document.getElementById("toast"), toastMsg = document.getElementById("toastMsg");
+  let undo = null, toastTimer;
+  function removeCity(id) {
+    const idx = selected.indexOf(id);
+    if (idx < 0) return;
+    const c = resolve(id);
+    selected.splice(idx, 1); save(); render();
+    undo = { id, idx };
+    toastMsg.textContent = `已移除 ${c.country}・${c.city}`;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; undo = null; }, 5000);
+  }
+  document.getElementById("undoBtn").addEventListener("click", () => {
+    if (!undo) return;
+    if (!selected.includes(undo.id)) selected.splice(Math.min(undo.idx, selected.length), 0, undo.id);
+    undo = null; toast.hidden = true; save(); render();
+  });
+
+  // ---- picker ----
+  const overlay = document.getElementById("overlay"), search = document.getElementById("search"), list = document.getElementById("list");
+  const addBtn = document.getElementById("addBtn");
+  function openPicker() {
+    overlay.hidden = false; search.value = ""; renderList();
+    setTimeout(() => search.focus(), 20);
+  }
+  function closePicker() { overlay.hidden = true; addBtn.focus(); }
+  addBtn.addEventListener("click", openPicker);
+  document.getElementById("closeBtn").addEventListener("click", closePicker);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closePicker(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closePicker(); });
+  search.addEventListener("input", renderList);
+
+  function optButton(c, now) {
+    const i = info(c.tz, now);
+    const added = selected.includes(c.id) || c.tz === localTz;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "opt"; b.disabled = added;
+    b.innerHTML = '<span class="n"></span><span class="t"></span>';
+    const n = b.querySelector(".n");
+    n.textContent = c.country;
+    const sm = document.createElement("small");
+    sm.textContent = added ? c.city + "・已加入" : c.city;
+    n.appendChild(sm);
+    const t = b.querySelector(".t");
+    t.textContent = gmt(i.offset);
+    const bt = document.createElement("b"); bt.textContent = pad(i.h) + ":" + pad(i.mi); t.appendChild(bt);
+    b.addEventListener("click", () => {
+      selected.push(c.id); save(); render(); closePicker();
+      const r = cards.get(c.id); r && r.card.scrollIntoView({ behavior: reduce.matches ? "auto" : "smooth", block: "center" });
+    });
+    return b;
+  }
+
+  function renderList() {
+    const q = search.value.trim().toLowerCase();
+    const now = new Date();
+    list.textContent = "";
+    const match = c => !q || c.country.toLowerCase().includes(q) || c.city.toLowerCase().includes(q) || c.en.includes(q) || c.tz.toLowerCase().includes(q);
+    const hits = CITIES.filter(match);
+    const frag = document.createDocumentFragment();
+    if (hits.length) {
+      const g = document.createElement("div"); g.className = "group-label"; g.textContent = q ? "城市" : "常用城市"; frag.appendChild(g);
+      hits.forEach(c => frag.appendChild(optButton(c, now)));
+    }
+    if (q) {
+      const known = new Set(CITIES.map(c => c.tz));
+      const qz = q.replace(/\s+/g, "_");
+      const zones = allZones.filter(z => !known.has(z) && z.toLowerCase().includes(qz)).slice(0, 40);
+      if (zones.length) {
+        const g = document.createElement("div"); g.className = "group-label"; g.textContent = "其他時區"; frag.appendChild(g);
+        zones.forEach(z => { const c = resolve("tz:" + z); c && frag.appendChild(optButton(c, now)); });
+      }
+      if (!hits.length && !zones.length) {
+        const n = document.createElement("div"); n.className = "none"; n.textContent = `找不到「${search.value.trim()}」。可以試試國家名、城市名或英文時區名稱。`; frag.appendChild(n);
+      }
+    }
+    list.appendChild(frag);
+  }
+
+  render();
+  setTimeout(loop, 1000 - (Date.now() % 1000) + 8);
+})();
+</script>
+</body>
+</html>
