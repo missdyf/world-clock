@@ -21,23 +21,42 @@
   main{flex:1; width:100%; max-width:520px; padding:32px 16px; display:flex; flex-direction:column; align-items:center; gap:24px}
   h1{font-family:"DotGothic16", "Press Start 2P", monospace; font-size:26px; line-height:1.6; text-align:center; margin:0; color:var(--pink-dark)}
   .stage{
-    width:100%; max-width:384px; aspect-ratio:1; border:6px solid var(--ink);
-    box-shadow:8px 8px 0 var(--pink); background:var(--card); image-rendering:pixelated;
+    width:100%; max-width:250px; aspect-ratio:1; border:5px solid var(--ink);
+    box-shadow:6px 6px 0 var(--pink); background:var(--card); image-rendering:pixelated;
   }
   .stage img{width:100%; height:100%; display:block; image-rendering:pixelated}
   #play{
-    font-family:"Press Start 2P", monospace; font-size:20px; letter-spacing:1px;
-    padding:20px 36px; color:#fff; background:var(--pink); border:4px solid var(--ink);
-    box-shadow:6px 6px 0 var(--ink); cursor:pointer; display:flex; align-items:center; gap:14px;
-    transition:transform .05s, box-shadow .05s;
+    font-family:"DotGothic16", system-ui, sans-serif; font-size:30px; letter-spacing:4px;
+    padding:14px 40px 14px 16px; color:#fff; background:var(--pink); border:4px solid var(--ink);
+    border-radius:999px; box-shadow:0 6px 0 var(--ink); cursor:pointer;
+    display:flex; align-items:center; gap:16px;
+    text-shadow:2px 2px 0 var(--ink);
+    transition:transform .08s, box-shadow .08s, background .15s;
   }
-  #play:hover:not(:disabled){background:var(--pink-dark)}
-  #play:active:not(:disabled){transform:translate(4px,4px); box-shadow:2px 2px 0 var(--ink)}
-  #play:disabled{opacity:.6; cursor:default}
+  #play:hover:not(:disabled){background:var(--pink-dark); transform:translateY(-2px); box-shadow:0 8px 0 var(--ink)}
+  #play:active:not(:disabled){transform:translateY(4px); box-shadow:0 2px 0 var(--ink)}
+  #play:disabled{opacity:.65; cursor:default}
   #play:focus-visible{outline:4px dashed var(--pink-dark); outline-offset:6px}
-  .tri{width:0;height:0;border-left:18px solid #fff;border-top:11px solid transparent;border-bottom:11px solid transparent}
+  .icon{
+    width:56px; height:56px; flex:none; border-radius:50%; background:#fff;
+    border:3px solid var(--ink); display:grid; place-items:center;
+  }
+  .tri{width:0;height:0;margin-left:6px;border-left:22px solid var(--pink-dark);border-top:14px solid transparent;border-bottom:14px solid transparent}
+  #play.is-playing .tri{border:none; width:20px; height:22px; margin:0;
+    background:linear-gradient(90deg,var(--pink-dark) 0 35%,transparent 35% 65%,var(--pink-dark) 65%)}
+  #play:not(:disabled):not(.is-playing) .icon{animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{50%{transform:scale(1.08)}}
   #status{min-height:1.4em; color:var(--muted); font-size:16px; text-align:center}
-  .bar{width:100%; max-width:384px; height:14px; border:3px solid var(--ink); background:#fff}
+  #status.bravo{
+    font-family:"Press Start 2P", monospace; font-size:34px; line-height:1.4; color:var(--pink);
+    text-shadow:3px 3px 0 var(--ink); letter-spacing:2px;
+    animation:pop .6s cubic-bezier(.2,1.6,.4,1) both, wiggle 1.2s ease-in-out .6s infinite;
+  }
+  #status.bravo .clap{display:inline-block; font-family:system-ui, sans-serif; text-shadow:none; font-size:32px; margin-left:8px}
+  @keyframes pop{0%{transform:scale(0) rotate(-10deg); opacity:0}100%{transform:scale(1) rotate(0); opacity:1}}
+  @keyframes wiggle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg) scale(1.05)}}
+  @media (prefers-reduced-motion: reduce){#status.bravo,#play .icon{animation:none !important}}
+  .bar{width:100%; max-width:250px; height:14px; border:3px solid var(--ink); background:#fff}
   .bar > div{height:100%; width:0; background:var(--pink)}
   /* YouTube 播放器保持可見但縮小（YouTube 規範要求播放器可見） */
   .yt{width:200px; height:200px; opacity:.9; border:3px solid var(--ink)}
@@ -54,7 +73,7 @@
     <img id="conductor" src="conductor-still.png" alt="戴粉紅眼鏡、法國貴族造型的 8bit 指揮家剪影">
   </div>
 
-  <button id="play" disabled><span class="tri"></span><span id="label">載入中…</span></button>
+  <button id="play" disabled><span class="icon"><span class="tri"></span></span><span id="label">載入中…</span></button>
   <div class="bar" aria-hidden="true"><div id="progress"></div></div>
   <div id="status"></div>
 
@@ -62,12 +81,12 @@
 </main>
 
 <footer>
-  音樂出處：<a href="https://youtu.be/dMTDjavVmH4" target="_blank" rel="noopener">https://youtu.be/dMTDjavVmH4</a>（播放片段 0:24–0:45）
+  音樂出處：<a href="https://youtu.be/dMTDjavVmH4" target="_blank" rel="noopener">https://youtu.be/dMTDjavVmH4</a>（播放片段 0:24–0:46）
 </footer>
 
 <script>
   const VIDEO_ID = 'dMTDjavVmH4';
-  const START = 24, END = 45, FADE = 5;   // 最後 5 秒漸弱
+  const START = 24, END = 46, FADE = 5;   // 最後 5 秒漸弱
   const btn = document.getElementById('play');
   const label = document.getElementById('label');
   const status = document.getElementById('status');
@@ -79,6 +98,7 @@
 
   const isFile = location.protocol === 'file:';
   function showError(msg){
+    status.className = '';
     status.innerHTML = msg;
     label.textContent = '無法播放';
     btn.disabled = true;
@@ -132,7 +152,8 @@
     if (!player || playing) return;
     playing = true;
     btn.disabled = true; label.textContent = '演奏中';
-    status.textContent = '';
+    btn.classList.add('is-playing');
+    status.className = ''; status.textContent = '';
     player.setVolume(100);
     player.unMute();
     player.seekTo(START, true);
@@ -161,7 +182,9 @@
     prog.style.width = '100%';
     stopAnim();
     btn.disabled = false; label.textContent = '再聽一次';
-    status.textContent = 'Bravo! 👏';
+    btn.classList.remove('is-playing');
+    status.innerHTML = 'Bravo!<span class="clap" aria-hidden="true">👏</span>';
+    status.className = 'bravo';
   }
 </script>
 </body>
