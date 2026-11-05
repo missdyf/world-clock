@@ -59,7 +59,8 @@
   .bar{width:100%; max-width:250px; height:14px; border:3px solid var(--ink); background:#fff}
   .bar > div{height:100%; width:0; background:var(--pink)}
   /* YouTube 播放器保持可見但縮小（YouTube 規範要求播放器可見） */
-  .yt{width:200px; height:200px; opacity:.9; border:3px solid var(--ink)}
+  .yt{width:200px; height:200px; opacity:.9; border:3px solid var(--ink); margin:16px auto 0}
+  .note{font-size:12px; margin:12px auto 0; max-width:360px}
   .yt iframe, #yt{width:100%; height:100%}
   footer{width:100%; padding:16px; text-align:center; font-size:14px; color:var(--muted); border-top:3px dashed #f3c2d8}
   footer a{color:var(--pink-dark); word-break:break-all}
@@ -76,17 +77,17 @@
   <button id="play" disabled><span class="icon"><span class="tri"></span></span><span id="label">載入中…</span></button>
   <div class="bar" aria-hidden="true"><div id="progress"></div></div>
   <div id="status"></div>
-
-  <div class="yt"><iframe id="yt" title="YouTube 音樂播放器" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" frameborder="0"></iframe></div>
 </main>
 
 <footer>
   音樂出處：<a href="https://youtu.be/dMTDjavVmH4" target="_blank" rel="noopener">https://youtu.be/dMTDjavVmH4</a>（播放片段 0:24–0:46）
+  <div class="yt"><iframe id="yt" title="YouTube 音樂播放器" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" frameborder="0"></iframe></div>
+  <p id="volnote" class="note" hidden>※ 手機瀏覽器不允許網頁調整音量，因此手機上無法漸弱；請用電腦瀏覽器收聽完整效果。</p>
 </footer>
 
 <script>
   const VIDEO_ID = 'dMTDjavVmH4';
-  const START = 24, END = 46, FADE = 5;   // 最後 5 秒漸弱
+  const START = 24, END = 46, FADE = 6;   // 最後 6 秒漸弱（0:40–0:46）
   const btn = document.getElementById('play');
   const label = document.getElementById('label');
   const status = document.getElementById('status');
@@ -97,6 +98,8 @@
   let player, timer = null, playing = false;
 
   const isFile = location.protocol === 'file:';
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isMobile) document.getElementById('volnote').hidden = false;
   function showError(msg){
     status.className = '';
     status.innerHTML = msg;
@@ -107,7 +110,7 @@
 
   // 自行建立 iframe，確保帶有 referrerpolicy（YouTube 錯誤 153 的修正）
   const params = new URLSearchParams({
-    enablejsapi: 1, start: START, end: END, controls: 0, disablekb: 1,
+    enablejsapi: 1, start: START, controls: 0, disablekb: 1,
     playsinline: 1, rel: 0
   });
   if (!isFile) params.set('origin', location.origin);
@@ -159,26 +162,38 @@
     player.seekTo(START, true);
     player.playVideo();
     startAnim();
+    lastYT = -1; lastVol = -1;
     clearInterval(timer);
-    timer = setInterval(tick, 50);
+    timer = setInterval(tick, 30);
   });
 
-  function tick(){
+  // 用畫面更新頻率平滑計算目前播放時間（YouTube 的 getCurrentTime 更新較粗）
+  let lastYT = -1, lastAt = 0, lastVol = -1;
+  function nowTime(){
     const t = player.getCurrentTime();
+    const now = performance.now();
+    if (t !== lastYT) { lastYT = t; lastAt = now; return t; }
+    return player.getPlayerState() === YT.PlayerState.PLAYING ? t + (now - lastAt) / 1000 : t;
+  }
+
+  function tick(){
+    const t = nowTime();
     if (t < START - 1) return;
     prog.style.width = Math.min(100, Math.max(0, (t - START) / (END - START) * 100)) + '%';
     if (t >= END - FADE) {
-      const v = Math.max(0, Math.round(100 * (END - t) / FADE));
-      player.setVolume(v);
+      // 二次曲線漸弱：人耳聽起來比直線下降更平順、更明顯
+      const x = Math.max(0, Math.min(1, (END - t) / FADE));
+      const v = Math.round(100 * x * x);
+      if (v !== lastVol) { player.setVolume(v); lastVol = v; }
     }
-    if (t >= END - 0.05) finish();
+    if (t >= END) finish();
   }
 
   function finish(){
     clearInterval(timer); timer = null;
     playing = false;
-    player.pauseVideo();
-    player.setVolume(100);
+    player.setVolume(0);
+    player.pauseVideo();   // 音量在下次按播放時才恢復
     prog.style.width = '100%';
     stopAnim();
     btn.disabled = false; label.textContent = '再聽一次';
