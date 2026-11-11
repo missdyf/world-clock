@@ -26,4 +26,4 @@
 - 同一國家裡，未來一年 UTC 時差與夏令時間規則完全相同的地點合併成一個時鐘；跨多個時區的國家依各地點歸類，例如智利分成聖地牙哥、蓬塔阿雷納斯（百內國家公園）、復活節島
 - 只認得內建資料中的地名：約 350 個城市、tzdata 時區名稱，以及常見旅遊景點與不同譯名
 
-`sundaytour-clock.html` 要和 `tessdata/` 資料夾放在同一層。
+`sundaytour-clock.html` 要和 `tessdata/`、`examples/` 資料夾放在同一層；`examples/itinerary-example.jpg` 是匯入視窗裡「範例圖」連結顯示的截圖。

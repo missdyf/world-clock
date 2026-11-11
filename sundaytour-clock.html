@@ -304,6 +304,18 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
 .howto .ic svg { width: 12px; height: 12px; }
 .howto b { color: var(--ink); font-weight: 500; margin-right: 6px; }
 
+/* example screenshot */
+.imp-note .linkish {
+  font: inherit; color: var(--accent); background: none; border: 0; padding: 0; margin-left: 2px; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; font-weight: 500;
+}
+.imp-note .linkish:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.ex-overlay { z-index: 55; }
+.ex-sheet { width: min(100%, 900px); max-height: min(86vh, 900px); }
+.ex-caption { margin: 0; color: var(--muted); font-size: .82rem; }
+.ex-body { overflow: auto; padding: 12px; background: var(--bg); }
+.ex-body img { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+
 /* import places */
 .add-btn.import-btn:hover { transform: translateY(-1px); }
 .imp-body { overflow-y: auto; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
@@ -413,7 +425,7 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
         <b id="impDropTitle">選擇圖片</b>
         <span id="impDropHint">可一次選多張，也可以把圖片拖到這裡，或直接貼上截圖</span>
       </button>
-      <p class="imp-note" id="impPrivacy">圖片只在這台裝置上辨識，不會上傳。</p>
+      <p class="imp-note"><span id="impPrivacy">推薦截圖官網後台每日行程頁面，可看</span><button type="button" class="linkish" id="impExampleBtn">範例圖</button></p>
       <div class="imp-thumbs" id="impThumbs"></div>
       <div class="imp-status" id="impStatus" role="status" hidden><span class="spin" aria-hidden="true"></span><span id="impStatusText"></span></div>
       <div class="imp-sum" id="impSum" hidden></div>
@@ -428,6 +440,21 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
       <button class="btn primary" id="impFromText" type="button">從文字匯入</button>
       <button class="btn" id="impDone" type="button">完成</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay ex-overlay" id="exOverlay" hidden>
+  <div class="sheet ex-sheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <h2 id="exTitle">範例圖</h2>
+        <button class="close" id="exClose" type="button" aria-label="關閉">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        </button>
+      </div>
+      <p class="ex-caption" id="exCaption">官網後台「每日行程」頁面的截圖：每天一行，地名照行程順序排列，辨識最準確。</p>
+    </div>
+    <div class="ex-body"><img id="exImg" src="examples/itinerary-example.jpg" alt="官網後台每日行程頁面截圖範例" width="868" height="742" loading="lazy"></div>
   </div>
 </div>
 
@@ -1243,7 +1270,7 @@ ZW|Africa/Harare||-17.833|31.050
       howArrange: "調整順序", howArrangeText: "拖曳圖卡右上角的點點",
       howRemove: "移除城市", howRemoveText: "按圖卡右上角的 ×，誤刪可以按「復原」",
       importBtn: "一鍵匯入地點", stop: "停止", done: "完成", fromText: "從文字匯入",
-      dropTitle: "選擇圖片", dropHint: "可一次選多張，也可以把圖片拖到這裡，或直接貼上截圖", privacy: "圖片只在這台裝置上辨識，不會上傳。",
+      dropTitle: "選擇圖片", dropHint: "可一次選多張，也可以把圖片拖到這裡，或直接貼上截圖", privacy: "推薦截圖官網後台每日行程頁面，可看", exLink: "範例圖", exTitle: "範例圖", exAlt: "官網後台每日行程頁面截圖範例", exCaption: "官網後台「每日行程」頁面的截圖：每天一行，地名照行程順序排列，辨識最準確。",
       pasteLabel: "或貼上行程文字", pastePh: "例如：台北✈伊斯坦堡✈布魯塞爾【比利時】",
       ocrText: "辨識出的文字（可以修改後按「從文字匯入」再比對一次）",
       ocrEngine: "正在載入文字辨識引擎…", ocrLang: "正在下載中英文字庫（約 4.6 MB，只有第一次比較久）…",
@@ -1274,7 +1301,7 @@ ZW|Africa/Harare||-17.833|31.050
       howArrange: "Reorder", howArrangeText: "Drag the dots at a card's top right",
       howRemove: "Remove", howRemoveText: "Tap × at a card's top right; Undo brings it back",
       importBtn: "Import places", stop: "Stop", done: "Done", fromText: "Import from text",
-      dropTitle: "Choose images", dropHint: "Pick several at once, drop images here, or paste a screenshot", privacy: "Images are read on this device and never uploaded.",
+      dropTitle: "Choose images", dropHint: "Pick several at once, drop images here, or paste a screenshot", privacy: "Screenshots of the daily itinerary page in the website back office work best. See the ", exLink: "example", exTitle: "Example screenshot", exAlt: "Example screenshot of the daily itinerary page", exCaption: "A screenshot of the daily itinerary page in the back office: one row per day, places in trip order. This reads most accurately.",
       pasteLabel: "Or paste itinerary text", pastePh: "e.g. Taipei ✈ Istanbul ✈ Brussels (Belgium)",
       ocrText: "Text found in the images (edit it, then choose Import from text to match again)",
       ocrEngine: "Loading the text reader…", ocrLang: "Downloading Chinese and English text data (about 4.6 MB, first time only)…",
@@ -2081,6 +2108,12 @@ CO|America/Bogota|卡塔赫納|Cartagena
   impDrop.addEventListener("click", () => { importFile.value = ""; importFile.click(); });
   importFile.addEventListener("change", () => { const f = [...importFile.files]; if (f.length) runOcr(f); });
   impStop.addEventListener("click", stopOcr);
+  const exOverlay = document.getElementById("exOverlay"), exBtn = document.getElementById("impExampleBtn");
+  const closeEx = () => { exOverlay.hidden = true; exBtn.focus(); };
+  exBtn.addEventListener("click", () => { exOverlay.hidden = false; document.getElementById("exClose").focus(); });
+  document.getElementById("exClose").addEventListener("click", closeEx);
+  exOverlay.addEventListener("click", e => { if (e.target === exOverlay) closeEx(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !exOverlay.hidden) { e.stopImmediatePropagation(); closeEx(); } }, true);
   impDone.addEventListener("click", closeImport);
   document.getElementById("impClose").addEventListener("click", closeImport);
   impOverlay.addEventListener("click", e => { if (e.target === impOverlay) closeImport(); });
@@ -2371,6 +2404,11 @@ CO|America/Bogota|卡塔赫納|Cartagena
     document.getElementById("impDropTitle").textContent = L("dropTitle");
     document.getElementById("impDropHint").textContent = L("dropHint");
     document.getElementById("impPrivacy").textContent = L("privacy");
+    document.getElementById("impExampleBtn").textContent = L("exLink");
+    document.getElementById("exTitle").textContent = L("exTitle");
+    document.getElementById("exCaption").textContent = L("exCaption");
+    document.getElementById("exImg").alt = L("exAlt");
+    document.getElementById("exClose").setAttribute("aria-label", L("close"));
     impTextLabel.textContent = impText.value ? L("ocrText") : L("pasteLabel");
     impText.placeholder = L("pastePh");
     impStop.textContent = L("stop"); impFromText.textContent = L("fromText"); impDone.textContent = L("done");
