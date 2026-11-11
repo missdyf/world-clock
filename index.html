@@ -177,7 +177,7 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
 .pair.sec { font-size: .72em; align-self: flex-end; }
 
 .flip {
-  position: relative; width: .74em; height: 1.36em; perspective: 4em;
+  position: relative; width: .74em; height: 1.36em;
   color: var(--tile-ink); border-radius: .08em;
   box-shadow: 0 .04em .08em rgba(0,0,0,.25);
 }
@@ -198,14 +198,16 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
   content: ""; position: absolute; left: 0; right: 0; top: 50%; height: .025em; min-height: 1px;
   background: var(--hinge); transform: translateY(-50%); z-index: 4;
 }
-.leaf { visibility: hidden; z-index: 3; backface-visibility: hidden; }
+/* The flip folds each half flat (scaleY) instead of a 3D rotateX: iOS Safari drops the digits of
+   3D-rotated, clipped layers mid-animation, while a 2D fold renders the same everywhere. */
+.leaf { visibility: hidden; z-index: 3; will-change: transform; }
 .leaf-top { transform-origin: 50% 100%; }
 .leaf-bottom { transform-origin: 50% 0; }
 .flip.go .leaf { visibility: visible; }
 .flip.go .leaf-top { animation: flipTop .3s ease-in forwards; }
-.flip.go .leaf-bottom { transform: rotateX(90deg); animation: flipBottom .3s ease-out .3s forwards; }
-@keyframes flipTop { from { transform: rotateX(0); } to { transform: rotateX(-90deg); } }
-@keyframes flipBottom { from { transform: rotateX(90deg); } to { transform: rotateX(0); } }
+.flip.go .leaf-bottom { transform: scaleY(0); animation: flipBottom .3s ease-out .3s forwards; }
+@keyframes flipTop { from { transform: scaleY(1); } to { transform: scaleY(0); } }
+@keyframes flipBottom { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
 .date {
   margin-top: auto;
