@@ -59,6 +59,16 @@ header {
 h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; text-wrap: balance; }
 .local { color: var(--muted); font-size: .82rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 
+.actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.lang-btn {
+  height: 48px; min-width: 48px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: inherit; font-family: var(--font-digit); font-size: 1.05rem; font-weight: 600; letter-spacing: .08em;
+  cursor: pointer; box-shadow: var(--shadow); transition: border-color .2s ease;
+}
+.lang-btn:hover { border-color: var(--accent); }
+.lang-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[lang="en"] .is-local .country::after { content: "LOCAL"; letter-spacing: .1em; }
 .add-btn {
   flex: none; width: 48px; height: 48px; border-radius: 50%;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink);
@@ -282,12 +292,15 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
 <div class="wrap">
   <header>
     <div class="brand">
-      <h1>世界時鐘</h1>
+      <h1 id="appTitle">世界時鐘</h1>
       <div class="local" id="localInfo">本地時間</div>
     </div>
+    <div class="actions">
+    <button class="lang-btn" id="langBtn" type="button" aria-label="Switch to English" title="Switch to English">EN</button>
     <button class="add-btn" id="addBtn" type="button" aria-label="新增城市" title="新增城市">
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg>
     </button>
+    </div>
   </header>
   <main class="grid" id="grid"></main>
 </div>
@@ -1094,6 +1107,58 @@ ZW|Africa/Harare||-17.833|31.050
   const countryZh = cc => COUNTRY_ZH[cc] || (dnZh && dnZh.of(cc)) || cc;
   const countryEn = cc => (dnEn && dnEn.of(cc)) || "";
 
+  // ---- language (中文 / English) ----
+  const LANG_KEY = "worldclock.lang";
+  let lang = "zh";
+  try { if (localStorage.getItem(LANG_KEY) === "en") lang = "en"; } catch (e) {}
+  const I18N = {
+    zh: {
+      title: "世界時鐘", local: "本地", add: "新增城市", close: "關閉",
+      search: "搜尋國家或城市（例如：巴西、坎昆、Cyprus）", undo: "復原",
+      removed: n => `已移除 ${n}`, added: "已加入", cities: "城市", otherZones: "其他時區",
+      none: q => `找不到「${q}」。可以試試國家名、城市名或英文名稱。`,
+      empty: "除了本地時間，目前沒有其他城市。",
+      remove: "移除", removeAria: n => `移除 ${n}`, drag: "拖曳以調整順序", dragAria: n => `調整 ${n} 的順序（可用方向鍵）`,
+      day: "白天", night: "夜晚", today: "今天", tomorrow: "明天", yesterday: "昨天", days: n => `${n > 0 ? "+" : ""}${n} 天`,
+      same: "與本地相同", ahead: t => `快 ${t}`, behind: t => `慢 ${t}`, hm: (h, m) => (h ? h + " 小時" : "") + (m ? (h ? " " : "") + m + " 分" : ""),
+      sep: "・", date: (i, wd) => `${i.y}年${i.mo}月${i.d}日 ${wd}`,
+      regions: { 亞洲: "亞洲", 歐洲: "歐洲", 北美洲: "北美洲", 中南美洲: "中南美洲", 非洲: "非洲", 大洋洲: "大洋洲" },
+      phases: ["新月", "眉月", "上弦月", "盈凸月", "滿月", "虧凸月", "下弦月", "殘月"],
+      lit: p => `照亮 ${p}%`, at: (label, time) => `${label}（${time}）`, join: "，",
+      rise: "日出", set: "日落", sunUp: "太陽在天空", mrise: "月出", mset: "月落", moonUp: "月亮在天空", moonDown: "夜晚，月亮在地平線下",
+      langBtn: "EN", langAria: "Switch to English",
+    },
+    en: {
+      title: "World Clock", local: "Local", add: "Add city", close: "Close",
+      search: "Search a country or city (e.g. Brazil, Cancún, 台北)", undo: "Undo",
+      removed: n => `Removed ${n}`, added: "Added", cities: "Cities", otherZones: "Other time zones",
+      none: q => `No match for “${q}”. Try a country, a city or a time zone name.`,
+      empty: "No other cities yet besides your local time.",
+      remove: "Remove", removeAria: n => `Remove ${n}`, drag: "Drag to reorder", dragAria: n => `Reorder ${n} (arrow keys work too)`,
+      day: "Day", night: "Night", today: "Today", tomorrow: "Tomorrow", yesterday: "Yesterday", days: n => `${n > 0 ? "+" : ""}${n} days`,
+      same: "same as local", ahead: t => `${t} ahead`, behind: t => `${t} behind`, hm: (h, m) => (h ? h + " h" : "") + (m ? (h ? " " : "") + m + " min" : ""),
+      sep: " · ", date: (i, wd) => `${wd}, ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i.mo - 1]} ${i.d}, ${i.y}`,
+      regions: { 亞洲: "Asia", 歐洲: "Europe", 北美洲: "North America", 中南美洲: "Latin America", 非洲: "Africa", 大洋洲: "Oceania" },
+      phases: ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"],
+      lit: p => `${p}% lit`, at: (label, time) => `${label} (${time})`, join: ", ",
+      rise: "Sunrise", set: "Sunset", sunUp: "Sun is up", mrise: "Moonrise", mset: "Moonset", moonUp: "Moon is up", moonDown: "Night, moon below the horizon",
+      langBtn: "中", langAria: "切換為中文",
+    },
+  };
+  const L = (k, ...a) => { const v = I18N[lang][k]; return typeof v === "function" ? v(...a) : v; };
+
+  // Display names in the current language.
+  const COUNTRY_EN = { HK: "Hong Kong", MO: "Macao", PS: "Palestine", US: "United States", GB: "United Kingdom", KR: "South Korea", KP: "North Korea", CD: "DR Congo", CG: "Congo", AE: "UAE", SJ: "Svalbard" };
+  const CITY_EN = { "Victoria Seychelles": "Victoria", "San Jose Costa Rica": "San José", "Santa Cruz Bolivia": "Santa Cruz", "Cordoba Argentina": "Córdoba", "Saint-Denis Reunion": "Saint-Denis", "Hamilton Bermuda": "Hamilton", "Stanley Falklands": "Stanley", "St Johns": "St. John's", "Washington DC": "Washington, D.C.", "Sao Paulo": "São Paulo", "Bogota": "Bogotá", "Cancun": "Cancún", "Merida": "Mérida", "Asuncion": "Asunción", "Brasilia": "Brasília", "Belem": "Belém", "Cuiaba": "Cuiabá", "Medellin": "Medellín", "Mazatlan": "Mazatlán", "Ciudad Juarez": "Ciudad Juárez", "Urumqi": "Urumqi (Xinjiang time)", "Zurich": "Zürich", "Krakow": "Kraków", "Reykjavik": "Reykjavík", "Chisinau": "Chișinău", "Nukualofa": "Nukuʻalofa", "Foz do Iguacu": "Foz do Iguaçu", "Fortaleza": "Fortaleza" };
+  const countryName = c => lang === "en" ? (c.cc ? (COUNTRY_EN[c.cc] || countryEn(c.cc) || c.cc) : c.place) : c.country;
+  const cityName = c => {
+    if (lang !== "en") return c.city;
+    if (c.id.startsWith("tz:")) return c.city;
+    const first = c.en.split("/")[0];
+    return CITY_EN[first] || first;
+  };
+  const fullName = c => countryName(c) + L("sep") + cityName(c);
+
   const strip = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const norm = s => strip(s).replace(/臺/g, "台").replace(/祕/g, "秘").replace(/[\s_\-'’.,()（）\/・]/g, "");
   const slug = s => strip(s).replace(/[^a-z0-9]/g, "");
@@ -1183,6 +1248,7 @@ ZW|Africa/Harare||-17.833|31.050
       fmts.set(tz, {
         p: new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
         w: new Intl.DateTimeFormat("zh-TW", { timeZone: tz, weekday: "short" }),
+        we: new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }),
       });
     }
     return fmts.get(tz);
@@ -1194,7 +1260,7 @@ ZW|Africa/Harare||-17.833|31.050
     const y = +o.year, mo = +o.month, d = +o.day, h = (+o.hour) % 24, mi = +o.minute, s = +o.second;
     const base = Math.floor(now.getTime() / 1000) * 1000;
     const offset = Math.round((Date.UTC(y, mo - 1, d, h, mi, s) - base) / 60000);
-    return { y, mo, d, h, mi, s, offset, wd: f.w.format(now) };
+    return { y, mo, d, h, mi, s, offset, wd: (lang === "en" ? f.we : f.w).format(now) };
   }
   const pad = n => String(n).padStart(2, "0");
   function gmt(min) {
@@ -1204,12 +1270,11 @@ ZW|Africa/Harare||-17.833|31.050
   }
   function relText(off, localOff, i, li) {
     const dayDiff = Math.round((Date.UTC(i.y, i.mo - 1, i.d) - Date.UTC(li.y, li.mo - 1, li.d)) / 86400000);
-    const day = dayDiff === 0 ? "今天" : dayDiff === 1 ? "明天" : dayDiff === -1 ? "昨天" : (dayDiff > 0 ? "+" : "") + dayDiff + " 天";
+    const day = dayDiff === 0 ? L("today") : dayDiff === 1 ? L("tomorrow") : dayDiff === -1 ? L("yesterday") : L("days", dayDiff);
     const diff = off - localOff;
-    if (diff === 0) return day + "・與本地相同";
+    if (diff === 0) return day + L("sep") + L("same");
     const a = Math.abs(diff), h = Math.floor(a / 60), m = a % 60;
-    const txt = (h ? h + " 小時" : "") + (m ? (h ? " " : "") + m + " 分" : "");
-    return day + "・" + (diff > 0 ? "快 " : "慢 ") + txt;
+    return day + L("sep") + (diff > 0 ? L("ahead", L("hm", h, m)) : L("behind", L("hm", h, m)));
   }
 
   // ---- sun & moon (SunCalc) ----
@@ -1251,10 +1316,11 @@ ZW|Africa/Harare||-17.833|31.050
 
   function phaseName(ill) {
     const f = ill.fraction, waxing = ill.phase < 0.5;
-    if (f >= 0.97) return "滿月";
-    if (f <= 0.03) return "新月";
-    if (waxing) return f < 0.42 ? "眉月" : f < 0.58 ? "上弦月" : "盈凸月";
-    return f > 0.58 ? "虧凸月" : f > 0.42 ? "下弦月" : "殘月";
+    const p = L("phases");
+    if (f >= 0.97) return p[4];
+    if (f <= 0.03) return p[0];
+    if (waxing) return f < 0.42 ? p[1] : f < 0.58 ? p[2] : p[3];
+    return f > 0.58 ? p[5] : f > 0.42 ? p[6] : p[7];
   }
 
   const ray = (cx, cy, a, r1, r2) => { const x = Math.cos(a * RAD), y = Math.sin(a * RAD); return `M${(cx + x * r1).toFixed(2)} ${(cy + y * r1).toFixed(2)}L${(cx + x * r2).toFixed(2)} ${(cy + y * r2).toFixed(2)}`; };
@@ -1307,15 +1373,15 @@ ZW|Africa/Harare||-17.833|31.050
     r.dn.hidden = !!a;
     if (!a) return;
     const icons = [];
-    const phase = `${phaseName(a.ill)}，照亮 ${Math.round(a.ill.fraction * 100)}%`;
-    if (a.sun.rise) icons.push(["rise", horizonSun(true), `日出（${hm(tz, a.sun.rise)}）`]);
-    else if (a.sun.set) icons.push(["set", horizonSun(false), `日落（${hm(tz, a.sun.set)}）`]);
-    else if (a.sun.up) icons.push(["sun", sunIcon(), "太陽在天空"]);
+    const J = L("join"), phase = phaseName(a.ill) + J + L("lit", Math.round(a.ill.fraction * 100));
+    if (a.sun.rise) icons.push(["rise", horizonSun(true), L("at", L("rise"), hm(tz, a.sun.rise))]);
+    else if (a.sun.set) icons.push(["set", horizonSun(false), L("at", L("set"), hm(tz, a.sun.set))]);
+    else if (a.sun.up) icons.push(["sun", sunIcon(), L("sunUp")]);
     // One icon only: the sun (or sunrise/sunset) takes the slot; the moon shows only at night.
-    else if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), `月出（${hm(tz, a.moon.rise)}），${phase}`]);
-    else if (a.moon.set) icons.push(["moon", horizonMoon(a, false), `月落（${hm(tz, a.moon.set)}），${phase}`]);
-    else if (a.moon.up) icons.push(["moon", moonIcon(a), `月亮在天空，${phase}`]);
-    else icons.push(["moon dim", moonIcon(a), `夜晚，月亮在地平線下，${phase}`]);
+    else if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), L("at", L("mrise"), hm(tz, a.moon.rise)) + J + phase]);
+    else if (a.moon.set) icons.push(["moon", horizonMoon(a, false), L("at", L("mset"), hm(tz, a.moon.set)) + J + phase]);
+    else if (a.moon.up) icons.push(["moon", moonIcon(a), L("moonUp") + J + phase]);
+    else icons.push(["moon dim", moonIcon(a), L("moonDown") + J + phase]);
     const html = icons.map(([cls, s, label]) => `<span class="ev ${cls}" role="img" title="${label}" aria-label="${label}">${s}</span>`).join("");
     if (r.astro._h !== html) { r.astro.innerHTML = html; r.astro._h = html; }
   }
@@ -1362,17 +1428,17 @@ ZW|Africa/Harare||-17.833|31.050
       <button class="remove" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
       <div class="clock" role="timer" aria-live="off"></div>
       <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span><span class="astro" hidden></span></div>`;
-    card.querySelector(".country .name").textContent = c.country;
-    card.querySelector(".city").textContent = c.city === c.country ? c.tz.replace(/_/g, " ") : c.city;
-    card.querySelector(".place").title = c.country + "・" + card.querySelector(".city").textContent;
+    card.querySelector(".country .name").textContent = countryName(c);
+    card.querySelector(".city").textContent = cityName(c) === countryName(c) ? c.tz.replace(/_/g, " ") : cityName(c);
+    card.querySelector(".place").title = countryName(c) + L("sep") + card.querySelector(".city").textContent;
     const rm = card.querySelector(".remove");
-    rm.setAttribute("aria-label", "移除 " + c.country + " " + c.city);
-    rm.title = "移除";
+    rm.setAttribute("aria-label", L("removeAria", fullName(c)));
+    rm.title = L("remove");
     rm.addEventListener("click", () => removeCity(c.id));
     card.dataset.id = c.id;
     const grip = card.querySelector(".grip");
-    grip.setAttribute("aria-label", "調整 " + c.country + " 的順序（可用方向鍵）");
-    grip.title = "拖曳以調整順序";
+    grip.setAttribute("aria-label", L("dragAria", countryName(c)));
+    grip.title = L("drag");
     grip.addEventListener("pointerdown", e => startDrag(e, card, grip));
     grip.addEventListener("keydown", e => keyMove(e, card, grip));
 
@@ -1414,7 +1480,9 @@ ZW|Africa/Harare||-17.833|31.050
     if (order.length <= 1) {
       const e = document.createElement("div");
       e.className = "empty";
-      e.innerHTML = '<div>除了本地時間，目前沒有其他城市。</div><button class="btn" type="button">新增城市</button>';
+      e.innerHTML = '<div></div><button class="btn" type="button"></button>';
+      e.firstChild.textContent = L("empty");
+      e.querySelector("button").textContent = L("add");
       e.querySelector("button").addEventListener("click", openPicker);
       grid.appendChild(e);
     }
@@ -1431,22 +1499,22 @@ ZW|Africa/Harare||-17.833|31.050
   function tick(animate = true) {
     const now = new Date();
     const li = info(localTz, now);
-    localInfo.textContent = `本地 ${localTz.replace(/_/g, " ")} · ${gmt(li.offset)}`;
+    localInfo.textContent = `${L("local")} ${localTz.replace(/_/g, " ")} · ${gmt(li.offset)}`;
     for (const r of cards.values()) {
       const i = info(r.c.tz, now);
       const digits = pad(i.h) + pad(i.mi) + pad(i.s);
       r.flips.forEach((f, k) => f._set(digits[k], animate));
-      r.clock.setAttribute("aria-label", `${r.c.country} ${pad(i.h)}:${pad(i.mi)}:${pad(i.s)}`);
+      r.clock.setAttribute("aria-label", `${countryName(r.c)} ${pad(i.h)}:${pad(i.mi)}:${pad(i.s)}`);
       r.offset.textContent = gmt(i.offset);
       r.rel.textContent = relText(i.offset, li.offset, i, li);
-      r.ymd.textContent = `${i.y}年${i.mo}月${i.d}日 ${i.wd}`;
+      r.ymd.textContent = L("date", i, i.wd);
       const minute = Math.floor(now.getTime() / 6e4);
       if (r.astroMin !== minute) { r.astroMin = minute; r.ast = astro(r.c, now); paintAstro(r, now); }
       const day = r.ast ? r.ast.sun.up : (i.h >= 6 && i.h < 18);
       r.dn.classList.toggle("night", !day);
       r.card.classList.toggle("is-day", day);
       r.card.classList.toggle("is-night", !day);
-      r.dnText.textContent = day ? "白天" : "夜晚";
+      r.dnText.textContent = day ? L("day") : L("night");
     }
   }
   function loop() { tick(true); setTimeout(loop, 1000 - (Date.now() % 1000) + 8); }
@@ -1521,7 +1589,7 @@ ZW|Africa/Harare||-17.833|31.050
     const c = resolve(id);
     selected.splice(idx, 1); save(); render();
     undo = { id, idx };
-    toastMsg.textContent = `已移除 ${c.country}・${c.city}`;
+    toastMsg.textContent = L("removed", fullName(c));
     toast.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { toast.hidden = true; undo = null; }, 5000);
@@ -1554,9 +1622,9 @@ ZW|Africa/Harare||-17.833|31.050
     b.dataset.tz = c.tz;
     b.innerHTML = '<span class="n"></span><span class="t"></span>';
     const n = b.querySelector(".n");
-    n.textContent = c.country;
+    n.textContent = countryName(c);
     const sm = document.createElement("small");
-    sm.textContent = added ? c.city + "・已加入" : c.city;
+    sm.textContent = added ? cityName(c) + L("sep") + L("added") : cityName(c);
     n.appendChild(sm);
     const t = b.querySelector(".t");
     t.textContent = gmt(i.offset);
@@ -1578,14 +1646,14 @@ ZW|Africa/Harare||-17.833|31.050
     if (!q) {
       REGIONS.forEach(r => {
         const cs = CITIES.filter(c => region(c) === r);
-        if (cs.length) { label(r); cs.forEach(c => frag.appendChild(optButton(c, now))); }
+        if (cs.length) { label(L("regions")[r]); cs.forEach(c => frag.appendChild(optButton(c, now))); }
       });
       list.appendChild(frag);
       return;
     }
     const score = c => c.cityKey.startsWith(q) ? 0 : c.cityKey.includes(q) ? 1 : c.countryKey.startsWith(q) ? 2 : c.key.includes(q) ? 3 : -1;
     const hits = CITIES.map(c => [score(c), c]).filter(x => x[0] >= 0).sort((a, b) => a[0] - b[0]).map(x => x[1]);
-    if (hits.length) { label("城市"); hits.forEach(c => frag.appendChild(optButton(c, now))); }
+    if (hits.length) { label(L("cities")); hits.forEach(c => frag.appendChild(optButton(c, now))); }
 
     // Every other tzdata zone that matches (so each region of a country is reachable), then any remaining zone name.
     const shown = new Set(hits.map(c => c.tz));
@@ -1598,17 +1666,43 @@ ZW|Africa/Harare||-17.833|31.050
     };
     for (const tz of ZONES.keys()) consider(tz);
     allZones.forEach(tz => { if (!ZONES.has(tz)) consider(tz); });
-    if (zones.length) { label("其他時區"); zones.slice(0, 80).forEach(c => frag.appendChild(optButton(c, now))); }
+    if (zones.length) { label(L("otherZones")); zones.slice(0, 80).forEach(c => frag.appendChild(optButton(c, now))); }
 
     if (!hits.length && !zones.length) {
       const n = document.createElement("div"); n.className = "none";
-      n.textContent = `找不到「${raw}」。可以試試國家名、城市名或英文名稱。`;
+      n.textContent = L("none", raw);
       frag.appendChild(n);
     }
     list.appendChild(frag);
   }
 
-  render();
+  // ---- language toggle ----
+  const langBtn = document.getElementById("langBtn");
+  function applyLang() {
+    document.documentElement.lang = lang === "en" ? "en" : "zh-Hant";
+    document.title = L("title");
+    document.getElementById("appTitle").textContent = L("title");
+    langBtn.textContent = L("langBtn");
+    langBtn.setAttribute("aria-label", L("langAria")); langBtn.title = L("langAria");
+    addBtn.setAttribute("aria-label", L("add")); addBtn.title = L("add");
+    document.getElementById("pickerTitle").textContent = L("add");
+    document.getElementById("closeBtn").setAttribute("aria-label", L("close"));
+    search.placeholder = L("search");
+    document.getElementById("undoBtn").textContent = L("undo");
+    // rebuild cards so every name and label switches
+    for (const r of cards.values()) r.card.remove();
+    cards.clear();
+    render();
+    if (!overlay.hidden) renderList();
+  }
+  langBtn.addEventListener("click", () => {
+    lang = lang === "en" ? "zh" : "en";
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    toast.hidden = true;
+    applyLang();
+  });
+
+  applyLang();
   setTimeout(loop, 1000 - (Date.now() % 1000) + 8);
 })();
 </script>
