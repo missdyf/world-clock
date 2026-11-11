@@ -188,12 +188,10 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
   font-size: .86rem; letter-spacing: .05em; font-variant-numeric: tabular-nums;
 }
 .date .dn { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 6px; }
-.astro { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px; margin-left: auto; color: var(--muted); font-size: .76rem; letter-spacing: .04em; }
-.ev { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.ev svg { width: 15px; height: 15px; flex: none; overflow: visible; }
-.ev.moon svg { color: var(--ink); }
-.ev.down svg { opacity: .5; }
-.ev b { font-family: var(--font-digit); font-weight: 600; font-size: .92rem; color: var(--ink); letter-spacing: .05em; }
+.astro { display: inline-flex; gap: 8px; margin-left: auto; color: var(--muted); }
+.ev { display: inline-flex; color: var(--ink); }
+.ev svg { width: 22px; height: 22px; flex: none; overflow: visible; }
+.ev.dim svg { opacity: .45; }
 .dn i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .dn.night i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
 
@@ -1203,7 +1201,9 @@ ZW|Africa/Harare||-17.833|31.050
   }
 
   // ---- sun & moon (SunCalc) ----
-  const RAD = Math.PI / 180, DAY = 864e5;
+  // Icons only: sun while it is up, sunrise/sunset within an hour of the event,
+  // moon (drawn in its current phase) while it is up, moonrise/moonset within an hour.
+  const RAD = Math.PI / 180, DAY = 864e5, HOUR = 36e5;
   const Sun = () => window.SunCalc || null;
   const hmFmt = new Map();
   function hm(tz, d) {
@@ -1211,89 +1211,84 @@ ZW|Africa/Harare||-17.833|31.050
     return hmFmt.get(tz).format(d).replace(/^24/, "00");
   }
   const valid = d => d instanceof Date && !isNaN(d);
-  const nextAfter = (list, now) => list.filter(d => valid(d) && d > now).sort((a, b) => a - b)[0] || null;
+  const near = (list, now) => list.filter(d => valid(d) && Math.abs(d - now) <= HOUR).sort((a, b) => Math.abs(a - now) - Math.abs(b - now))[0] || null;
 
   function astro(c, now) {
     const S = Sun();
     if (!S || !isFinite(c.lat) || !isFinite(c.lon)) return null;
     const t = now.getTime();
     const rises = [], sets = [];
-    for (const k of [-1, 0, 1, 2]) {
+    for (const k of [-1, 0, 1]) {
       const x = S.getTimes(new Date(t + k * DAY), c.lat, c.lon);
       rises.push(x.sunrise); sets.push(x.sunset);
     }
-    const sunUp = S.getPosition(now, c.lat, c.lon).altitude > -0.833 * RAD;
     const mRise = [], mSet = [];
     const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    for (const k of [-1, 0, 1, 2]) {
+    for (const k of [-1, 0, 1]) {
       const x = S.getMoonTimes(new Date(base + k * DAY), c.lat, c.lon, true);
       if (x.rise) mRise.push(x.rise);
       if (x.set) mSet.push(x.set);
     }
-    const moonUp = S.getMoonPosition(now, c.lat, c.lon).altitude > 0.133 * RAD;
-    const dayKey = d => { const x = info(c.tz, d); return x.y * 1e4 + x.mo * 100 + x.d; };
-    const today = dayKey(now);
-    const onToday = list => list.find(d => valid(d) && dayKey(d) === today) || null;
     return {
-      sun: { up: sunUp, next: nextAfter(sunUp ? sets : rises, now), rise: onToday(rises), set: onToday(sets) },
-      moon: { up: moonUp, next: nextAfter(moonUp ? mSet : mRise, now) },
+      sun: { up: S.getPosition(now, c.lat, c.lon).altitude > -0.833 * RAD, rise: near(rises, now), set: near(sets, now) },
+      moon: { up: S.getMoonPosition(now, c.lat, c.lon).altitude > 0.133 * RAD, rise: near(mRise, now), set: near(mSet, now) },
       ill: S.getMoonIllumination(now),
       south: c.lat < 0,
     };
   }
 
-  function phaseName(p) {
-    if (p < 0.03 || p > 0.97) return "新月";
-    if (p < 0.22) return "眉月";
-    if (p < 0.28) return "上弦月";
-    if (p < 0.47) return "盈凸月";
-    if (p < 0.53) return "滿月";
-    if (p < 0.72) return "虧凸月";
-    if (p < 0.78) return "下弦月";
-    return "殘月";
+  function phaseName(ill) {
+    const f = ill.fraction, waxing = ill.phase < 0.5;
+    if (f >= 0.97) return "滿月";
+    if (f <= 0.03) return "新月";
+    if (waxing) return f < 0.42 ? "眉月" : f < 0.58 ? "上弦月" : "盈凸月";
+    return f > 0.58 ? "虧凸月" : f > 0.42 ? "下弦月" : "殘月";
   }
 
-  function sunSvg(up) {
-    const ray = (a, r1, r2, cy) => { const x = Math.cos(a * RAD), y = Math.sin(a * RAD); return `M${(8 + x * r1).toFixed(2)} ${(cy + y * r1).toFixed(2)}L${(8 + x * r2).toFixed(2)} ${(cy + y * r2).toFixed(2)}`; };
-    if (up) {
-      const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 5, 6.8, 8)).join("");
-      return `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.1" fill="var(--accent)"/><path d="${rays}" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
-    }
-    const rays = [180, 225, 270, 315, 360].map(a => ray(a, 5, 6.6, 11)).join("");
-    return `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.7 11a3.3 3.3 0 0 1 6.6 0" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="${rays}M1 13.6h14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
-  }
+  const ray = (cx, cy, a, r1, r2) => { const x = Math.cos(a * RAD), y = Math.sin(a * RAD); return `M${(cx + x * r1).toFixed(2)} ${(cy + y * r1).toFixed(2)}L${(cx + x * r2).toFixed(2)} ${(cy + y * r2).toFixed(2)}`; };
+  const chevron = up => up ? "M5.8 3.4L8 1.2l2.2 2.2" : "M5.8 1.2L8 3.4l2.2-2.2";
+  const svg = body => `<svg viewBox="0 0 16 16" aria-hidden="true">${body}</svg>`;
 
-  // Lit part of the moon drawn from its illuminated fraction; mirrored south of the equator.
-  function moonSvg(ill, south) {
-    const f = ill.fraction, waxing = ill.phase < 0.5, r = 6, c = 8;
+  function sunIcon() {
+    const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(8, 8, a, 5, 6.8)).join("");
+    return svg(`<circle cx="8" cy="8" r="3.1" fill="var(--accent)"/><path d="${rays}" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" fill="none"/>`);
+  }
+  function horizonSun(up) {
+    const rays = [180, 220, 320, 360].map(a => ray(8, 12, a, 5.6, 7.2)).join("");
+    return svg(`<path d="M3.9 12a4.1 4.1 0 0 1 8.2 0Z" fill="var(--accent)"/><path d="${rays}${chevron(up)}" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M1 14.4h14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`);
+  }
+  // Lit part of the moon from its illuminated fraction; mirrored south of the equator.
+  function moonShape(cx, cy, r, ill, south) {
+    const f = ill.fraction, waxing = ill.phase < 0.5;
     let lit = "";
-    if (f > 0.985) lit = `<circle cx="8" cy="8" r="${r}" fill="currentColor"/>`;
+    if (f > 0.985) lit = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="currentColor"/>`;
     else if (f > 0.015) {
       const rx = (r * Math.abs(1 - 2 * f)).toFixed(2);
       const s1 = waxing ? 1 : 0, s2 = f < 0.5 ? (waxing ? 0 : 1) : (waxing ? 1 : 0);
-      lit = `<path d="M${c} ${c - r}A${r} ${r} 0 0 ${s1} ${c} ${c + r}A${rx} ${r} 0 0 ${s2} ${c} ${c - r}Z" fill="currentColor"/>`;
+      lit = `<path d="M${cx} ${cy - r}A${r} ${r} 0 0 ${s1} ${cx} ${cy + r}A${rx} ${r} 0 0 ${s2} ${cx} ${cy - r}Z" fill="currentColor"/>`;
     }
-    const flip = south ? ' transform="matrix(-1 0 0 1 16 0)"' : "";
-    return `<svg viewBox="0 0 16 16" aria-hidden="true"><g${flip}><circle cx="8" cy="8" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-width="1"/>${lit}</g></svg>`;
+    const flip = south ? ` transform="matrix(-1 0 0 1 ${2 * cx} 0)"` : "";
+    return `<g${flip}><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="1"/>${lit}</g>`;
   }
+  const moonIcon = a => svg(moonShape(8, 8, 6, a.ill, a.south));
+  const horizonMoon = (a, up) => svg(`${moonShape(8, 8.8, 4.4, a.ill, a.south)}<path d="${chevron(up)}" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M1 14.4h14" stroke="currentColor" stroke-opacity=".6" stroke-width="1.3" stroke-linecap="round"/>`);
 
   function paintAstro(r) {
     const a = r.ast, tz = r.c.tz;
     r.astro.hidden = !a;
     r.dn.hidden = !!a;
     if (!a) return;
-    const sunText = a.sun.next ? `${a.sun.up ? "日落" : "日出"} <b>${hm(tz, a.sun.next)}</b>` : (a.sun.up ? "永晝" : "永夜");
-    const moonText = a.moon.next ? `${a.moon.up ? "月落" : "月出"} <b>${hm(tz, a.moon.next)}</b>` : (a.moon.up ? "整日可見" : "整日不升");
-    const sunHtml = sunSvg(a.sun.up) + `<span>${sunText}</span>`;
-    const moonHtml = moonSvg(a.ill, a.south) + `<span>${moonText}</span>`;
-    if (r.sunEl._h !== sunHtml) { r.sunEl.innerHTML = sunHtml; r.sunEl._h = sunHtml; }
-    if (r.moonEl._h !== moonHtml) { r.moonEl.innerHTML = moonHtml; r.moonEl._h = moonHtml; }
-    r.sunEl.classList.toggle("down", !a.sun.up);
-    r.moonEl.classList.toggle("down", !a.moon.up);
-    const sunTip = (a.sun.rise && a.sun.set) ? `今天日出 ${hm(tz, a.sun.rise)}・日落 ${hm(tz, a.sun.set)}` : (a.sun.up ? "永晝" : "永夜");
-    const moonTip = `${phaseName(a.ill.phase)}・照亮 ${Math.round(a.ill.fraction * 100)}%・目前${a.moon.up ? "在地平線上" : "在地平線下"}`;
-    r.sunEl.title = sunTip; r.sunEl.setAttribute("aria-label", (a.sun.up ? "太陽在天空，" : "太陽已下山，") + r.sunEl.textContent);
-    r.moonEl.title = moonTip; r.moonEl.setAttribute("aria-label", moonTip + "，" + r.moonEl.textContent);
+    const icons = [];
+    const phase = `${phaseName(a.ill)}，照亮 ${Math.round(a.ill.fraction * 100)}%`;
+    if (a.sun.rise) icons.push(["rise", horizonSun(true), `日出（${hm(tz, a.sun.rise)}）`]);
+    else if (a.sun.set) icons.push(["set", horizonSun(false), `日落（${hm(tz, a.sun.set)}）`]);
+    else if (a.sun.up) icons.push(["sun", sunIcon(), "太陽在天空"]);
+    if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), `月出（${hm(tz, a.moon.rise)}），${phase}`]);
+    else if (a.moon.set) icons.push(["moon", horizonMoon(a, false), `月落（${hm(tz, a.moon.set)}），${phase}`]);
+    else if (a.moon.up) icons.push(["moon", moonIcon(a), `月亮在天空，${phase}`]);
+    else if (!icons.length) icons.push(["moon dim", moonIcon(a), `夜晚，月亮在地平線下，${phase}`]);
+    const html = icons.map(([cls, s, label]) => `<span class="ev ${cls}" role="img" title="${label}" aria-label="${label}">${s}</span>`).join("");
+    if (r.astro._h !== html) { r.astro.innerHTML = html; r.astro._h = html; }
   }
 
   // ---- flip digit ----
@@ -1337,7 +1332,7 @@ ZW|Africa/Harare||-17.833|31.050
       <button class="grip" type="button"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>
       <button class="remove" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
       <div class="clock" role="timer" aria-live="off"></div>
-      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span><span class="astro" hidden><span class="ev sun"></span><span class="ev moon"></span></span></div>`;
+      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span><span class="astro" hidden></span></div>`;
     card.querySelector(".country").textContent = c.country;
     card.querySelector(".city").textContent = c.city === c.country ? c.tz.replace(/_/g, " ") : c.city;
     const rm = card.querySelector(".remove");
@@ -1369,8 +1364,6 @@ ZW|Africa/Harare||-17.833|31.050
       dn: card.querySelector(".dn"),
       dnText: card.querySelector(".dn > span"),
       astro: card.querySelector(".astro"),
-      sunEl: card.querySelector(".ev.sun"),
-      moonEl: card.querySelector(".ev.moon"),
       astroMin: -1, ast: null,
       c,
     };
