@@ -342,8 +342,15 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 /* phones: the tips fold behind a "how to use" button */
 .howto-toggle { display: none; }
 @media (max-width: 640px) {
+  header { flex-direction: column; align-items: stretch; gap: 14px; padding-block: 22px 16px; }
+  h1 { font-size: 1.3rem; }
+  .actions { gap: 8px; }
+  .lang-btn { height: 40px; padding: 3px; }
+  .lang-btn span { height: 32px; min-width: 36px; }
+  .add-btn { width: 40px; height: 40px; }
+  .add-btn svg { width: 18px; height: 18px; }
   .howto-toggle {
-    display: inline-flex; align-items: center; gap: 8px; margin: -8px 0 16px; padding: 4px 12px 4px 4px;
+    display: inline-flex; align-items: center; gap: 8px; margin: 0 0 0 auto; height: 40px; padding: 0 12px 0 8px;
     border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink);
     font: inherit; font-size: .82rem; letter-spacing: .04em; cursor: pointer;
   }
@@ -354,7 +361,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .howto-toggle .chev { width: 12px; height: 12px; color: var(--muted); transition: transform .2s ease; }
   .howto-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
   .howto-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  ul.howto { margin-top: -4px; }
+  ul.howto { margin: 0 0 16px; }
   ul.howto:not(.open) { display: none; }
 }
 
@@ -452,9 +459,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><circle cx="7" cy="8.2" r="1.4"/><path d="M3 14.5l4.2-3.8 3 2.6 2.6-2.2 4.7 3.6"/></svg>
     </button>
     <input type="file" id="importFile" accept="image/*" multiple hidden>
+  <button class="howto-toggle" id="howtoToggle" type="button" aria-expanded="false" aria-controls="howto"><span class="ic" aria-hidden="true">?</span><span id="howtoToggleText">使用說明</span><svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg></button>
     </div>
   </header>
-  <button class="howto-toggle" id="howtoToggle" type="button" aria-expanded="false" aria-controls="howto"><span class="ic" aria-hidden="true">?</span><span id="howtoToggleText">使用說明</span><svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg></button>
   <ul class="howto" id="howto">
     <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg></span><span><b data-k="howAdd">新增城市</b><span data-k="howAddText">搜尋國家或城市名稱</span></span></li>
     <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><path d="M3 14.5l4.2-3.8 3 2.6 2.6-2.2 4.7 3.6"/></svg></span><span><b data-k="howImport">一鍵匯入</b><span data-k="howImportText">上傳行程截圖或貼上文字，同一國家、同時區的地點會合併成一個時鐘</span></span></li>
