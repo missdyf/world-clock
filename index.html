@@ -92,15 +92,14 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
   color-scheme: dark;
 }
-/* Sunrise/sunset/moonrise/moonset: the card becomes a dark-to-light sky. The top stays dark and the
-   bottom stays light so both text rows remain readable; --tw-hint (set from the event's progress)
+/* Sunrise/sunset/moonrise/moonset: the card becomes a soft grey-to-white sky (grey top, white bottom); --tw-hint (set from the event's progress)
    moves the midpoint, so the light grows after a rise and shrinks before a set. */
 .card.is-twilight {
-  --tw-dark: #15171b; --tw-light: #f8f7f3;
+  --tw-dark: #aeb1b6; --tw-light: #f8f7f3;
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
   background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 26%, var(--tw-hint, 50%), var(--tw-light) 78%, var(--tw-light) 100%);
 }
-.card.is-twilight .card-head { --ink: #efeee8; --muted: #a9aeb6; --chip: rgba(255,255,255,.08); color: var(--ink); }
+.card.is-twilight .card-head { --ink: #1c1f24; --muted: #3c424b; --chip: rgba(255,255,255,.35); color: var(--ink); }
 .card.is-twilight .date { --ink: #1c1f24; --muted: #5f6670; --surface: var(--tw-light); --moon: #c8b98c; color: var(--ink); border-top-color: rgba(28,31,36,.14); }
 .card.is-twilight .flip { box-shadow: 0 .04em .12em rgba(0,0,0,.3); }
 .card.is-day .flip { box-shadow: 0 0 0 1px #e4e1d9, 0 .04em .1em rgba(30,25,15,.12); }
@@ -1312,8 +1311,8 @@ ZW|Africa/Harare||-17.833|31.050
     // Brighter sky as the light grows: the midpoint rises and both ends lighten.
     const mix = (c0, c1) => "#" + [0, 2, 4].map(i => Math.round(parseInt(c0.substr(i + 1, 2), 16) * (1 - light) + parseInt(c1.substr(i + 1, 2), 16) * light).toString(16).padStart(2, "0")).join("");
     st.setProperty("--tw-hint", (74 - 44 * light).toFixed(1) + "%");
-    st.setProperty("--tw-dark", mix("#0d0e11", "#323843"));
-    st.setProperty("--tw-light", mix("#a4a7ac", "#f8f7f3"));
+    st.setProperty("--tw-dark", mix("#9a9ea4", "#cfd2d6"));
+    st.setProperty("--tw-light", mix("#e6e7e9", "#fbfbf9"));
   }
 
   function paintAstro(r, now) {
