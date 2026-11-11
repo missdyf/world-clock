@@ -1295,10 +1295,11 @@ ZW|Africa/Harare||-17.833|31.050
     if (a.sun.rise) icons.push(["rise", horizonSun(true), `日出（${hm(tz, a.sun.rise)}）`]);
     else if (a.sun.set) icons.push(["set", horizonSun(false), `日落（${hm(tz, a.sun.set)}）`]);
     else if (a.sun.up) icons.push(["sun", sunIcon(), "太陽在天空"]);
-    if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), `月出（${hm(tz, a.moon.rise)}），${phase}`]);
+    // One icon only: the sun (or sunrise/sunset) takes the slot; the moon shows only at night.
+    else if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), `月出（${hm(tz, a.moon.rise)}），${phase}`]);
     else if (a.moon.set) icons.push(["moon", horizonMoon(a, false), `月落（${hm(tz, a.moon.set)}），${phase}`]);
     else if (a.moon.up) icons.push(["moon", moonIcon(a), `月亮在天空，${phase}`]);
-    else if (!icons.length) icons.push(["moon dim", moonIcon(a), `夜晚，月亮在地平線下，${phase}`]);
+    else icons.push(["moon dim", moonIcon(a), `夜晚，月亮在地平線下，${phase}`]);
     const html = icons.map(([cls, s, label]) => `<span class="ev ${cls}" role="img" title="${label}" aria-label="${label}">${s}</span>`).join("");
     if (r.astro._h !== html) { r.astro.innerHTML = html; r.astro._h = html; }
   }
