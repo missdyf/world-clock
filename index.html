@@ -92,12 +92,11 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
   color-scheme: dark;
 }
-/* Sunrise/sunset/moonrise/moonset: the card becomes a soft grey-to-white sky (grey top, white bottom); --tw-hint (set from the event's progress)
-   moves the midpoint, so the light grows after a rise and shrinks before a set. */
+/* Sunrise/sunset/moonrise/moonset: one fixed soft grey-to-white sky (grey top, white bottom). */
 .card.is-twilight {
-  --tw-dark: #aeb1b6; --tw-light: #f8f7f3;
+  --tw-dark: #c3c6ca; --tw-light: #f6f6f5;
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
-  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 26%, var(--tw-hint, 50%), var(--tw-light) 78%, var(--tw-light) 100%);
+  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 26%, 40%, var(--tw-light) 78%, var(--tw-light) 100%);
 }
 .card.is-twilight .card-head { --ink: #1c1f24; --muted: #3c424b; --chip: rgba(255,255,255,.35); color: var(--ink); }
 .card.is-twilight .date { --ink: #1c1f24; --muted: #5f6670; --surface: var(--tw-light); --moon: #c8b98c; color: var(--ink); border-top-color: rgba(28,31,36,.14); }
@@ -1295,29 +1294,15 @@ ZW|Africa/Harare||-17.833|31.050
   const moonIcon = a => svg(moonShape(8, 8, 6, a.ill, a.south));
   const horizonMoon = (a, rising) => horizon(moonShape(8, rising ? H - 1.9 : H + 0.4, 4, a.ill, a.south), rising);
 
-  // Light level 0..1 across the hour before and after a rise (growing) or a set (fading).
-  function paintSky(r, a, now) {
-    let light = null;
-    const prog = d => Math.min(1, Math.max(0, (now - d + HOUR) / (2 * HOUR)));
-    if (a) {
-      if (a.sun.rise) light = prog(a.sun.rise);
-      else if (a.sun.set) light = 1 - prog(a.sun.set);
-      else if (!a.sun.up && a.moon.rise) light = prog(a.moon.rise);
-      else if (!a.sun.up && a.moon.set) light = 1 - prog(a.moon.set);
-    }
-    r.card.classList.toggle("is-twilight", light !== null);
-    const st = r.card.style;
-    if (light === null) { ["--tw-hint", "--tw-dark", "--tw-light"].forEach(k => st.removeProperty(k)); return; }
-    // Brighter sky as the light grows: the midpoint rises and both ends lighten.
-    const mix = (c0, c1) => "#" + [0, 2, 4].map(i => Math.round(parseInt(c0.substr(i + 1, 2), 16) * (1 - light) + parseInt(c1.substr(i + 1, 2), 16) * light).toString(16).padStart(2, "0")).join("");
-    st.setProperty("--tw-hint", (74 - 44 * light).toFixed(1) + "%");
-    st.setProperty("--tw-dark", mix("#9a9ea4", "#cfd2d6"));
-    st.setProperty("--tw-light", mix("#e6e7e9", "#fbfbf9"));
+  // Within an hour of a rise or set (moon events only at night) the card shows the twilight sky.
+  function paintSky(r, a) {
+    const tw = !!a && (a.sun.rise || a.sun.set || (!a.sun.up && (a.moon.rise || a.moon.set)));
+    r.card.classList.toggle("is-twilight", !!tw);
   }
 
   function paintAstro(r, now) {
     const a = r.ast, tz = r.c.tz;
-    paintSky(r, a, now);
+    paintSky(r, a);
     r.astro.hidden = !a;
     r.dn.hidden = !!a;
     if (!a) return;
