@@ -7,9 +7,10 @@
 - 搜尋國家時，也會列出該國在 tzdata 裡的其他所有時區
 - 卡片可移除（5 秒內可復原），也可以拖曳握把調整順序
 - 清單與順序存在瀏覽器的 localStorage
+- 每張卡片顯示當地下一次日出或日落、月出或月落的時間，月亮圖示畫出當天的月相；卡片在太陽升起時是亮色、日落後是暗色
 - 支援手機、桌機，以及淺色／深色主題
 
-城市與時區對照依據 IANA tzdata（zone.tab）。
+城市與時區對照依據 IANA tzdata（zone.tab），城市座標來自 GeoNames，日月時間用 [SunCalc](https://github.com/mourner/suncalc) 計算。
 
 單一檔案 `index.html`，不需要建置，直接用 GitHub Pages 發布即可。
 

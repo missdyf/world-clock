@@ -81,7 +81,7 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   padding: 18px 18px 20px; box-shadow: var(--shadow);
   display: flex; flex-direction: column; gap: 14px; min-width: 0;
 }
-/* Each card follows its own city's daylight: light card by day (06:00-17:59), dark card at night. */
+/* Each card follows its own city's daylight: light card while the sun is up, dark card after sunset. */
 .card.is-day {
   --surface: #f8f7f3; --ink: #1c1f24; --muted: #69707a; --line: #e2dfd7; --chip: #eeece6;
   --tile: #ffffff; --tile-hi: #f4f3ef; --tile-ink: #1d2024; --hinge: #d9d5cc;
@@ -184,6 +184,12 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
   font-size: .86rem; letter-spacing: .05em; font-variant-numeric: tabular-nums;
 }
 .date .dn { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 6px; }
+.astro { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px; margin-left: auto; color: var(--muted); font-size: .76rem; letter-spacing: .04em; }
+.ev { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.ev svg { width: 15px; height: 15px; flex: none; overflow: visible; }
+.ev.moon svg { color: var(--ink); }
+.ev.down svg { opacity: .5; }
+.ev b { font-family: var(--font-digit); font-weight: 600; font-size: .92rem; color: var(--ink); letter-spacing: .05em; }
 .dn i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .dn.night i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
 
@@ -289,778 +295,780 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
 
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="undoBtn">復原</button></div>
 
+<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
 <script>
 (() => {
-  // Cities: time zone and country code of each entry checked against tzdata (zone.tab, 2026e).
+  // Cities: country|zone|name|English names|lat|lon. Zones and country codes checked against tzdata (zone.tab, 2026e);
+  // coordinates from GeoNames (cities with 1000+ people), or the zone.tab location where a place is not a single city.
   const CITY_DATA = `
-TW|Asia/Taipei|台北|Taipei
-TW|Asia/Taipei|台中|Taichung
-TW|Asia/Taipei|高雄|Kaohsiung
-JP|Asia/Tokyo|東京|Tokyo
-JP|Asia/Tokyo|大阪|Osaka
-JP|Asia/Tokyo|京都|Kyoto
-JP|Asia/Tokyo|札幌|Sapporo
-JP|Asia/Tokyo|福岡|Fukuoka
-JP|Asia/Tokyo|那霸|Naha/Okinawa/沖繩
-KR|Asia/Seoul|首爾|Seoul
-KR|Asia/Seoul|釜山|Busan
-KP|Asia/Pyongyang|平壤|Pyongyang
-CN|Asia/Shanghai|北京|Beijing
-CN|Asia/Shanghai|上海|Shanghai
-CN|Asia/Shanghai|廣州|Guangzhou
-CN|Asia/Shanghai|深圳|Shenzhen
-CN|Asia/Shanghai|廈門|Xiamen
-CN|Asia/Shanghai|杭州|Hangzhou
-CN|Asia/Shanghai|成都|Chengdu
-CN|Asia/Shanghai|重慶|Chongqing
-CN|Asia/Shanghai|武漢|Wuhan
-CN|Asia/Shanghai|西安|Xi'an
-CN|Asia/Urumqi|烏魯木齊（新疆時間）|Urumqi/Xinjiang/新疆
-HK|Asia/Hong_Kong|香港|Hong Kong
-MO|Asia/Macau|澳門|Macau/Macao
-MN|Asia/Ulaanbaatar|烏蘭巴托|Ulaanbaatar
-MN|Asia/Hovd|科布多|Hovd
-SG|Asia/Singapore|新加坡|Singapore
-MY|Asia/Kuala_Lumpur|吉隆坡|Kuala Lumpur
-MY|Asia/Kuala_Lumpur|檳城|Penang/George Town
-MY|Asia/Kuching|古晉|Kuching/Sarawak/砂拉越
-MY|Asia/Kuching|亞庇|Kota Kinabalu/Sabah/沙巴
-TH|Asia/Bangkok|曼谷|Bangkok
-TH|Asia/Bangkok|清邁|Chiang Mai
-TH|Asia/Bangkok|普吉島|Phuket
-VN|Asia/Ho_Chi_Minh|河內|Hanoi
-VN|Asia/Ho_Chi_Minh|胡志明市|Ho Chi Minh City/Saigon/西貢
-VN|Asia/Ho_Chi_Minh|峴港|Da Nang
-KH|Asia/Phnom_Penh|金邊|Phnom Penh
-KH|Asia/Phnom_Penh|暹粒|Siem Reap/吳哥窟
-LA|Asia/Vientiane|永珍|Vientiane
-MM|Asia/Yangon|仰光|Yangon/Rangoon
-PH|Asia/Manila|馬尼拉|Manila
-PH|Asia/Manila|宿霧|Cebu
-ID|Asia/Jakarta|雅加達|Jakarta
-ID|Asia/Jakarta|泗水|Surabaya
-ID|Asia/Pontianak|坤甸|Pontianak
-ID|Asia/Makassar|峇里島|Bali/Denpasar/巴里島
-ID|Asia/Makassar|望加錫|Makassar
-ID|Asia/Jayapura|查亞普拉|Jayapura/Papua
-BN|Asia/Brunei|斯里巴加灣市|Bandar Seri Begawan
-TL|Asia/Dili|帝力|Dili
-IN|Asia/Kolkata|新德里|New Delhi/Delhi
-IN|Asia/Kolkata|孟買|Mumbai/Bombay
-IN|Asia/Kolkata|班加羅爾|Bengaluru/Bangalore
-IN|Asia/Kolkata|加爾各答|Kolkata/Calcutta
-IN|Asia/Kolkata|清奈|Chennai
-IN|Asia/Kolkata|海德拉巴|Hyderabad
-PK|Asia/Karachi|喀拉蚩|Karachi
-PK|Asia/Karachi|拉合爾|Lahore
-PK|Asia/Karachi|伊斯蘭馬巴德|Islamabad
-BD|Asia/Dhaka|達卡|Dhaka
-NP|Asia/Kathmandu|加德滿都|Kathmandu
-BT|Asia/Thimphu|廷布|Thimphu
-LK|Asia/Colombo|可倫坡|Colombo
-MV|Indian/Maldives|馬列|Male/Maldives/馬爾地夫
-AF|Asia/Kabul|喀布爾|Kabul
-KZ|Asia/Almaty|阿拉木圖|Almaty
-KZ|Asia/Almaty|阿斯塔納|Astana
-UZ|Asia/Tashkent|塔什干|Tashkent
-UZ|Asia/Samarkand|撒馬爾罕|Samarkand
-KG|Asia/Bishkek|比斯凱克|Bishkek
-TJ|Asia/Dushanbe|杜尚別|Dushanbe
-TM|Asia/Ashgabat|阿什哈巴德|Ashgabat
-AE|Asia/Dubai|杜拜|Dubai
-AE|Asia/Dubai|阿布達比|Abu Dhabi
-QA|Asia/Qatar|杜哈|Doha
-BH|Asia/Bahrain|麥納瑪|Manama
-KW|Asia/Kuwait|科威特城|Kuwait City
-OM|Asia/Muscat|馬斯喀特|Muscat
-SA|Asia/Riyadh|利雅德|Riyadh
-SA|Asia/Riyadh|吉達|Jeddah
-SA|Asia/Riyadh|麥加|Mecca/Makkah
-YE|Asia/Aden|沙那|Sanaa/Aden/亞丁
-IR|Asia/Tehran|德黑蘭|Tehran
-IQ|Asia/Baghdad|巴格達|Baghdad
-IQ|Asia/Baghdad|艾比爾|Erbil
-JO|Asia/Amman|安曼|Amman
-SY|Asia/Damascus|大馬士革|Damascus
-LB|Asia/Beirut|貝魯特|Beirut
-IL|Asia/Jerusalem|耶路撒冷|Jerusalem
-IL|Asia/Jerusalem|特拉維夫|Tel Aviv
-PS|Asia/Gaza|加薩|Gaza
-PS|Asia/Hebron|拉馬拉|Ramallah/Hebron/希伯崙
-CY|Asia/Nicosia|尼古西亞|Nicosia
-CY|Asia/Nicosia|利馬索|Limassol
-CY|Asia/Nicosia|拉納卡|Larnaca
-CY|Asia/Famagusta|法馬古斯塔|Famagusta
-TR|Europe/Istanbul|伊斯坦堡|Istanbul
-TR|Europe/Istanbul|安卡拉|Ankara
-GE|Asia/Tbilisi|提比里斯|Tbilisi
-AM|Asia/Yerevan|葉里溫|Yerevan
-AZ|Asia/Baku|巴庫|Baku
-RU|Europe/Moscow|莫斯科|Moscow
-RU|Europe/Moscow|聖彼得堡|Saint Petersburg/St Petersburg
-RU|Europe/Kaliningrad|加里寧格勒|Kaliningrad
-RU|Europe/Samara|薩馬拉|Samara
-RU|Asia/Yekaterinburg|葉卡捷琳堡|Yekaterinburg
-RU|Asia/Omsk|鄂木斯克|Omsk
-RU|Asia/Novosibirsk|新西伯利亞|Novosibirsk
-RU|Asia/Krasnoyarsk|克拉斯諾亞爾斯克|Krasnoyarsk
-RU|Asia/Irkutsk|伊爾庫次克|Irkutsk
-RU|Asia/Yakutsk|雅庫次克|Yakutsk
-RU|Asia/Vladivostok|海參崴|Vladivostok
-RU|Asia/Magadan|馬加丹|Magadan
-RU|Asia/Kamchatka|堪察加|Kamchatka/Petropavlovsk-Kamchatsky
-GB|Europe/London|倫敦|London
-GB|Europe/London|曼徹斯特|Manchester
-GB|Europe/London|愛丁堡|Edinburgh
-IE|Europe/Dublin|都柏林|Dublin
-PT|Europe/Lisbon|里斯本|Lisbon
-PT|Europe/Lisbon|波多|Porto
-PT|Atlantic/Madeira|馬德拉|Madeira/Funchal
-PT|Atlantic/Azores|亞速群島|Azores/Ponta Delgada
-ES|Europe/Madrid|馬德里|Madrid
-ES|Europe/Madrid|巴塞隆納|Barcelona
-ES|Europe/Madrid|塞維亞|Seville/Sevilla
-ES|Atlantic/Canary|加那利群島|Canary Islands/Tenerife/Las Palmas
-FR|Europe/Paris|巴黎|Paris
-FR|Europe/Paris|里昂|Lyon
-FR|Europe/Paris|尼斯|Nice
-BE|Europe/Brussels|布魯塞爾|Brussels
-NL|Europe/Amsterdam|阿姆斯特丹|Amsterdam
-LU|Europe/Luxembourg|盧森堡|Luxembourg
-DE|Europe/Berlin|柏林|Berlin
-DE|Europe/Berlin|慕尼黑|Munich/München
-DE|Europe/Berlin|法蘭克福|Frankfurt
-DE|Europe/Berlin|漢堡|Hamburg
-CH|Europe/Zurich|蘇黎世|Zurich
-CH|Europe/Zurich|日內瓦|Geneva
-AT|Europe/Vienna|維也納|Vienna
-IT|Europe/Rome|羅馬|Rome
-IT|Europe/Rome|米蘭|Milan
-IT|Europe/Rome|威尼斯|Venice
-IT|Europe/Rome|佛羅倫斯|Florence
-MT|Europe/Malta|瓦萊塔|Valletta/Malta
-MC|Europe/Monaco|摩納哥|Monaco
-VA|Europe/Vatican|梵蒂岡|Vatican
-DK|Europe/Copenhagen|哥本哈根|Copenhagen
-NO|Europe/Oslo|奧斯陸|Oslo
-SE|Europe/Stockholm|斯德哥爾摩|Stockholm
-FI|Europe/Helsinki|赫爾辛基|Helsinki
-IS|Atlantic/Reykjavik|雷克雅維克|Reykjavik
-EE|Europe/Tallinn|塔林|Tallinn
-LV|Europe/Riga|里加|Riga
-LT|Europe/Vilnius|維爾紐斯|Vilnius
-PL|Europe/Warsaw|華沙|Warsaw
-PL|Europe/Warsaw|克拉科夫|Krakow
-CZ|Europe/Prague|布拉格|Prague
-SK|Europe/Bratislava|布拉提斯拉瓦|Bratislava
-HU|Europe/Budapest|布達佩斯|Budapest
-SI|Europe/Ljubljana|盧布爾雅那|Ljubljana
-HR|Europe/Zagreb|札格瑞布|Zagreb
-HR|Europe/Zagreb|杜布羅夫尼克|Dubrovnik
-BA|Europe/Sarajevo|塞拉耶佛|Sarajevo
-RS|Europe/Belgrade|貝爾格勒|Belgrade
-ME|Europe/Podgorica|波德里查|Podgorica
-MK|Europe/Skopje|史高比耶|Skopje
-AL|Europe/Tirane|地拉那|Tirana
-GR|Europe/Athens|雅典|Athens
-BG|Europe/Sofia|索非亞|Sofia
-RO|Europe/Bucharest|布加勒斯特|Bucharest
-MD|Europe/Chisinau|奇西瑙|Chisinau
-UA|Europe/Kyiv|基輔|Kyiv/Kiev
-UA|Europe/Kyiv|敖德薩|Odesa/Odessa
-BY|Europe/Minsk|明斯克|Minsk
-EG|Africa/Cairo|開羅|Cairo
-MA|Africa/Casablanca|卡薩布蘭卡|Casablanca
-MA|Africa/Casablanca|馬拉喀什|Marrakesh/Marrakech
-DZ|Africa/Algiers|阿爾及爾|Algiers
-TN|Africa/Tunis|突尼斯|Tunis
-LY|Africa/Tripoli|的黎波里|Tripoli
-SD|Africa/Khartoum|喀土穆|Khartoum
-ET|Africa/Addis_Ababa|阿迪斯阿貝巴|Addis Ababa
-KE|Africa/Nairobi|奈洛比|Nairobi
-TZ|Africa/Dar_es_Salaam|三蘭港|Dar es Salaam
-TZ|Africa/Dar_es_Salaam|尚吉巴|Zanzibar
-UG|Africa/Kampala|坎帕拉|Kampala
-RW|Africa/Kigali|吉佳利|Kigali
-NG|Africa/Lagos|拉哥斯|Lagos
-NG|Africa/Lagos|阿布加|Abuja
-GH|Africa/Accra|阿克拉|Accra
-CI|Africa/Abidjan|阿必尚|Abidjan
-SN|Africa/Dakar|達喀爾|Dakar
-CM|Africa/Douala|杜阿拉|Douala/Yaounde/雅溫得
-CD|Africa/Kinshasa|金夏沙|Kinshasa
-CD|Africa/Lubumbashi|盧本巴希|Lubumbashi
-AO|Africa/Luanda|羅安達|Luanda
-ZA|Africa/Johannesburg|約翰尼斯堡|Johannesburg
-ZA|Africa/Johannesburg|開普敦|Cape Town
-ZW|Africa/Harare|哈拉雷|Harare
-ZM|Africa/Lusaka|路沙卡|Lusaka
-MZ|Africa/Maputo|馬布多|Maputo
-NA|Africa/Windhoek|溫荷克|Windhoek
-BW|Africa/Gaborone|嘉柏隆里|Gaborone
-MG|Indian/Antananarivo|安塔那那利佛|Antananarivo
-MU|Indian/Mauritius|路易士港|Port Louis
-SC|Indian/Mahe|維多利亞|Victoria Seychelles/Mahe
-RE|Indian/Reunion|聖但尼|Saint-Denis Reunion
-CV|Atlantic/Cape_Verde|普拉亞|Praia
-US|America/New_York|紐約|New York/NYC
-US|America/New_York|華盛頓特區|Washington DC
-US|America/New_York|波士頓|Boston
-US|America/New_York|費城|Philadelphia
-US|America/New_York|亞特蘭大|Atlanta
-US|America/New_York|邁阿密|Miami
-US|America/New_York|奧蘭多|Orlando
-US|America/Detroit|底特律|Detroit
-US|America/Chicago|芝加哥|Chicago
-US|America/Chicago|休士頓|Houston
-US|America/Chicago|達拉斯|Dallas
-US|America/Chicago|奧斯汀|Austin
-US|America/Chicago|紐奧良|New Orleans
-US|America/Chicago|明尼亞波利|Minneapolis
-US|America/Denver|丹佛|Denver
-US|America/Denver|鹽湖城|Salt Lake City
-US|America/Phoenix|鳳凰城|Phoenix/Arizona/亞利桑那
-US|America/Los_Angeles|洛杉磯|Los Angeles/LA
-US|America/Los_Angeles|舊金山|San Francisco
-US|America/Los_Angeles|聖地牙哥（加州）|San Diego
-US|America/Los_Angeles|西雅圖|Seattle
-US|America/Los_Angeles|波特蘭|Portland
-US|America/Los_Angeles|拉斯維加斯|Las Vegas
-US|America/Anchorage|安克拉治|Anchorage/Alaska/阿拉斯加
-US|Pacific/Honolulu|檀香山|Honolulu/Hawaii/夏威夷
-PR|America/Puerto_Rico|聖胡安|San Juan
-GU|Pacific/Guam|關島|Guam/Hagatna
-AS|Pacific/Pago_Pago|巴哥巴哥|Pago Pago
-CA|America/Toronto|多倫多|Toronto
-CA|America/Toronto|渥太華|Ottawa
-CA|America/Toronto|蒙特婁|Montreal
-CA|America/Halifax|哈利法克斯|Halifax
-CA|America/St_Johns|聖約翰斯|St Johns/Newfoundland/紐芬蘭
-CA|America/Winnipeg|溫尼伯|Winnipeg
-CA|America/Regina|里賈納|Regina/Saskatchewan
-CA|America/Edmonton|卡加利|Calgary
-CA|America/Edmonton|艾德蒙頓|Edmonton
-CA|America/Vancouver|溫哥華|Vancouver
-CA|America/Whitehorse|白馬市|Whitehorse/Yukon
-GL|America/Nuuk|努克|Nuuk/Greenland
-BM|Atlantic/Bermuda|漢密爾頓|Hamilton Bermuda
-MX|America/Mexico_City|墨西哥城|Mexico City/CDMX
-MX|America/Mexico_City|瓜達拉哈拉|Guadalajara
-MX|America/Mexico_City|普埃布拉|Puebla
-MX|America/Mexico_City|瓦哈卡|Oaxaca
-MX|America/Mexico_City|阿卡普科|Acapulco
-MX|America/Monterrey|蒙特雷|Monterrey
-MX|America/Cancun|坎昆|Cancun/Quintana Roo/Tulum/Playa del Carmen
-MX|America/Merida|梅里達|Merida/Yucatan
-MX|America/Mazatlan|馬薩特蘭|Mazatlan
-MX|America/Mazatlan|洛斯卡沃斯|Los Cabos/Cabo San Lucas
-MX|America/Hermosillo|埃莫西約|Hermosillo/Sonora
-MX|America/Chihuahua|奇瓦瓦|Chihuahua
-MX|America/Ciudad_Juarez|華雷斯城|Ciudad Juarez
-MX|America/Tijuana|提華納|Tijuana
-GT|America/Guatemala|瓜地馬拉市|Guatemala City
-BZ|America/Belize|貝爾墨潘|Belmopan/Belize City
-SV|America/El_Salvador|聖薩爾瓦多|San Salvador
-HN|America/Tegucigalpa|德古斯加巴|Tegucigalpa
-NI|America/Managua|馬拿瓜|Managua
-CR|America/Costa_Rica|聖荷西|San Jose Costa Rica
-PA|America/Panama|巴拿馬城|Panama City
-CU|America/Havana|哈瓦那|Havana
-JM|America/Jamaica|京斯敦|Kingston
-HT|America/Port-au-Prince|太子港|Port-au-Prince
-DO|America/Santo_Domingo|聖多明哥|Santo Domingo
-BS|America/Nassau|拿索|Nassau
-TT|America/Port_of_Spain|西班牙港|Port of Spain
-BB|America/Barbados|布里奇頓|Bridgetown
-CO|America/Bogota|波哥大|Bogota
-CO|America/Bogota|麥德林|Medellin
-VE|America/Caracas|卡拉卡斯|Caracas
-EC|America/Guayaquil|基多|Quito
-EC|America/Guayaquil|瓜亞基爾|Guayaquil
-EC|Pacific/Galapagos|加拉巴哥群島|Galapagos
-PE|America/Lima|利馬|Lima
-PE|America/Lima|庫斯科|Cusco/Cuzco/Machu Picchu/馬丘比丘
-BO|America/La_Paz|拉巴斯|La Paz
-BO|America/La_Paz|聖克魯斯|Santa Cruz Bolivia
-BR|America/Sao_Paulo|聖保羅|Sao Paulo
-BR|America/Sao_Paulo|里約熱內盧|Rio de Janeiro/Rio
-BR|America/Sao_Paulo|巴西利亞|Brasilia
-BR|America/Sao_Paulo|阿雷格里港|Porto Alegre
-BR|America/Sao_Paulo|伊瓜蘇|Foz do Iguacu/Iguazu
-BR|America/Bahia|薩爾瓦多|Salvador/Bahia/巴伊亞
-BR|America/Recife|累西腓|Recife
-BR|America/Fortaleza|福塔雷薩|Fortaleza
-BR|America/Belem|貝倫|Belem
-BR|America/Noronha|費爾南多迪諾羅尼亞|Fernando de Noronha
-BR|America/Manaus|瑪瑙斯|Manaus/Amazonas/亞馬遜
-BR|America/Cuiaba|庫亞巴|Cuiaba
-BR|America/Campo_Grande|大坎普|Campo Grande
-BR|America/Porto_Velho|波多韋柳|Porto Velho
-BR|America/Rio_Branco|里約布蘭科|Rio Branco/Acre
-AR|America/Argentina/Buenos_Aires|布宜諾斯艾利斯|Buenos Aires
-AR|America/Argentina/Cordoba|科爾多瓦|Cordoba Argentina
-AR|America/Argentina/Mendoza|門多薩|Mendoza
-AR|America/Argentina/Ushuaia|烏斯懷亞|Ushuaia
-CL|America/Santiago|聖地牙哥|Santiago
-CL|America/Punta_Arenas|蓬塔阿雷納斯|Punta Arenas/Patagonia/巴塔哥尼亞
-CL|Pacific/Easter|復活節島|Easter Island/Rapa Nui
-PY|America/Asuncion|亞松森|Asuncion
-UY|America/Montevideo|蒙特維多|Montevideo
-GY|America/Guyana|喬治城|Georgetown
-SR|America/Paramaribo|巴拉馬利波|Paramaribo
-GF|America/Cayenne|開雲|Cayenne
-FK|Atlantic/Stanley|史坦利|Stanley Falklands
-AU|Australia/Sydney|雪梨|Sydney
-AU|Australia/Sydney|坎培拉|Canberra
-AU|Australia/Melbourne|墨爾本|Melbourne
-AU|Australia/Brisbane|布里斯本|Brisbane
-AU|Australia/Brisbane|黃金海岸|Gold Coast
-AU|Australia/Adelaide|阿德雷德|Adelaide
-AU|Australia/Darwin|達爾文|Darwin
-AU|Australia/Perth|伯斯|Perth
-AU|Australia/Hobart|荷巴特|Hobart/Tasmania/塔斯馬尼亞
-AU|Australia/Eucla|尤克拉|Eucla
-AU|Australia/Lord_Howe|豪勳爵島|Lord Howe Island
-NZ|Pacific/Auckland|奧克蘭|Auckland
-NZ|Pacific/Auckland|威靈頓|Wellington
-NZ|Pacific/Auckland|基督城|Christchurch
-NZ|Pacific/Chatham|查塔姆群島|Chatham Islands
-FJ|Pacific/Fiji|蘇瓦|Suva
-PG|Pacific/Port_Moresby|莫士比港|Port Moresby
-SB|Pacific/Guadalcanal|荷尼阿拉|Honiara
-VU|Pacific/Efate|維拉港|Port Vila
-NC|Pacific/Noumea|努美阿|Noumea
-WS|Pacific/Apia|阿皮亞|Apia
-TO|Pacific/Tongatapu|努瓜婁發|Nukualofa
-TV|Pacific/Funafuti|富納富提|Funafuti
-CK|Pacific/Rarotonga|拉羅湯加|Rarotonga
-PF|Pacific/Tahiti|大溪地|Tahiti/Papeete
-PF|Pacific/Marquesas|馬克薩斯群島|Marquesas
-PW|Pacific/Palau|柯羅|Koror/Palau
-MH|Pacific/Majuro|馬久羅|Majuro
-KI|Pacific/Tarawa|塔拉瓦|Tarawa
-KI|Pacific/Kiritimati|聖誕島|Kiritimati/Christmas Island
+TW|Asia/Taipei|台北|Taipei|25.048|121.532
+TW|Asia/Taipei|台中|Taichung|24.147|120.684
+TW|Asia/Taipei|高雄|Kaohsiung|22.616|120.313
+JP|Asia/Tokyo|東京|Tokyo|35.690|139.692
+JP|Asia/Tokyo|大阪|Osaka|34.694|135.502
+JP|Asia/Tokyo|京都|Kyoto|35.021|135.754
+JP|Asia/Tokyo|札幌|Sapporo|43.067|141.350
+JP|Asia/Tokyo|福岡|Fukuoka|33.600|130.417
+JP|Asia/Tokyo|那霸|Naha/Okinawa/沖繩|26.217|127.683
+KR|Asia/Seoul|首爾|Seoul|37.566|126.978
+KR|Asia/Seoul|釜山|Busan|35.102|129.030
+KP|Asia/Pyongyang|平壤|Pyongyang|39.034|125.754
+CN|Asia/Shanghai|北京|Beijing|39.907|116.397
+CN|Asia/Shanghai|上海|Shanghai|31.222|121.458
+CN|Asia/Shanghai|廣州|Guangzhou|23.117|113.250
+CN|Asia/Shanghai|深圳|Shenzhen|22.546|114.068
+CN|Asia/Shanghai|廈門|Xiamen|24.480|118.082
+CN|Asia/Shanghai|杭州|Hangzhou|30.294|120.161
+CN|Asia/Shanghai|成都|Chengdu|30.667|104.067
+CN|Asia/Shanghai|重慶|Chongqing|29.563|106.553
+CN|Asia/Shanghai|武漢|Wuhan|30.583|114.267
+CN|Asia/Shanghai|西安|Xi'an|34.258|108.929
+CN|Asia/Urumqi|烏魯木齊（新疆時間）|Urumqi/Xinjiang/新疆|43.801|87.600
+HK|Asia/Hong_Kong|香港|Hong Kong|22.278|114.175
+MO|Asia/Macau|澳門|Macau/Macao|22.201|113.546
+MN|Asia/Ulaanbaatar|烏蘭巴托|Ulaanbaatar|47.917|106.883
+MN|Asia/Hovd|科布多|Hovd|44.670|102.175
+SG|Asia/Singapore|新加坡|Singapore|1.290|103.850
+MY|Asia/Kuala_Lumpur|吉隆坡|Kuala Lumpur|3.141|101.687
+MY|Asia/Kuala_Lumpur|檳城|Penang/George Town|5.411|100.335
+MY|Asia/Kuching|古晉|Kuching/Sarawak/砂拉越|1.550|110.333
+MY|Asia/Kuching|亞庇|Kota Kinabalu/Sabah/沙巴|5.975|116.072
+TH|Asia/Bangkok|曼谷|Bangkok|13.754|100.501
+TH|Asia/Bangkok|清邁|Chiang Mai|18.790|98.985
+TH|Asia/Bangkok|普吉島|Phuket|7.891|98.398
+VN|Asia/Ho_Chi_Minh|河內|Hanoi|21.024|105.841
+VN|Asia/Ho_Chi_Minh|胡志明市|Ho Chi Minh City/Saigon/西貢|10.823|106.630
+VN|Asia/Ho_Chi_Minh|峴港|Da Nang|16.068|108.221
+KH|Asia/Phnom_Penh|金邊|Phnom Penh|11.562|104.916
+KH|Asia/Phnom_Penh|暹粒|Siem Reap/吳哥窟|13.362|103.861
+LA|Asia/Vientiane|永珍|Vientiane|17.967|102.600
+MM|Asia/Yangon|仰光|Yangon/Rangoon|16.805|96.156
+PH|Asia/Manila|馬尼拉|Manila|14.604|120.982
+PH|Asia/Manila|宿霧|Cebu|10.317|123.891
+ID|Asia/Jakarta|雅加達|Jakarta|-6.215|106.845
+ID|Asia/Jakarta|泗水|Surabaya|-7.249|112.751
+ID|Asia/Pontianak|坤甸|Pontianak|-0.032|109.325
+ID|Asia/Makassar|峇里島|Bali/Denpasar/巴里島|-8.650|115.217
+ID|Asia/Makassar|望加錫|Makassar|-5.149|119.432
+ID|Asia/Jayapura|查亞普拉|Jayapura/Papua|-2.534|140.718
+BN|Asia/Brunei|斯里巴加灣市|Bandar Seri Begawan|4.890|114.940
+TL|Asia/Dili|帝力|Dili|-8.559|125.574
+IN|Asia/Kolkata|新德里|New Delhi/Delhi|28.652|77.231
+IN|Asia/Kolkata|孟買|Mumbai/Bombay|19.073|72.883
+IN|Asia/Kolkata|班加羅爾|Bengaluru/Bangalore|12.972|77.594
+IN|Asia/Kolkata|加爾各答|Kolkata/Calcutta|22.563|88.363
+IN|Asia/Kolkata|清奈|Chennai|13.088|80.278
+IN|Asia/Kolkata|海德拉巴|Hyderabad|17.384|78.456
+PK|Asia/Karachi|喀拉蚩|Karachi|24.861|67.010
+PK|Asia/Karachi|拉合爾|Lahore|31.558|74.351
+PK|Asia/Karachi|伊斯蘭馬巴德|Islamabad|33.721|73.043
+BD|Asia/Dhaka|達卡|Dhaka|23.710|90.407
+NP|Asia/Kathmandu|加德滿都|Kathmandu|27.702|85.321
+BT|Asia/Thimphu|廷布|Thimphu|27.466|89.642
+LK|Asia/Colombo|可倫坡|Colombo|6.935|79.849
+MV|Indian/Maldives|馬列|Male/Maldives/馬爾地夫|4.175|73.509
+AF|Asia/Kabul|喀布爾|Kabul|34.528|69.172
+KZ|Asia/Almaty|阿拉木圖|Almaty|43.257|76.929
+KZ|Asia/Almaty|阿斯塔納|Astana|51.169|71.449
+UZ|Asia/Tashkent|塔什干|Tashkent|41.265|69.216
+UZ|Asia/Samarkand|撒馬爾罕|Samarkand|39.654|66.960
+KG|Asia/Bishkek|比斯凱克|Bishkek|42.870|74.590
+TJ|Asia/Dushanbe|杜尚別|Dushanbe|38.536|68.779
+TM|Asia/Ashgabat|阿什哈巴德|Ashgabat|37.950|58.383
+AE|Asia/Dubai|杜拜|Dubai|25.077|55.309
+AE|Asia/Dubai|阿布達比|Abu Dhabi|24.451|54.397
+QA|Asia/Qatar|杜哈|Doha|25.285|51.531
+BH|Asia/Bahrain|麥納瑪|Manama|26.228|50.586
+KW|Asia/Kuwait|科威特城|Kuwait City|29.370|47.978
+OM|Asia/Muscat|馬斯喀特|Muscat|23.584|58.408
+SA|Asia/Riyadh|利雅德|Riyadh|24.688|46.722
+SA|Asia/Riyadh|吉達|Jeddah|21.490|39.186
+SA|Asia/Riyadh|麥加|Mecca/Makkah|21.427|39.826
+YE|Asia/Aden|沙那|Sanaa/Aden/亞丁|15.355|44.207
+IR|Asia/Tehran|德黑蘭|Tehran|35.694|51.422
+IQ|Asia/Baghdad|巴格達|Baghdad|33.341|44.401
+IQ|Asia/Baghdad|艾比爾|Erbil|36.183|44.012
+JO|Asia/Amman|安曼|Amman|31.955|35.945
+SY|Asia/Damascus|大馬士革|Damascus|33.510|36.291
+LB|Asia/Beirut|貝魯特|Beirut|33.893|35.502
+IL|Asia/Jerusalem|耶路撒冷|Jerusalem|31.769|35.216
+IL|Asia/Jerusalem|特拉維夫|Tel Aviv|32.081|34.781
+PS|Asia/Gaza|加薩|Gaza|31.502|34.467
+PS|Asia/Hebron|拉馬拉|Ramallah/Hebron/希伯崙|31.529|35.094
+CY|Asia/Nicosia|尼古西亞|Nicosia|35.175|33.364
+CY|Asia/Nicosia|利馬索|Limassol|34.684|33.038
+CY|Asia/Nicosia|拉納卡|Larnaca|34.923|33.623
+CY|Asia/Famagusta|法馬古斯塔|Famagusta|35.125|33.941
+TR|Europe/Istanbul|伊斯坦堡|Istanbul|41.014|28.950
+TR|Europe/Istanbul|安卡拉|Ankara|39.920|32.854
+GE|Asia/Tbilisi|提比里斯|Tbilisi|41.694|44.834
+AM|Asia/Yerevan|葉里溫|Yerevan|40.181|44.514
+AZ|Asia/Baku|巴庫|Baku|40.378|49.892
+RU|Europe/Moscow|莫斯科|Moscow|55.752|37.616
+RU|Europe/Moscow|聖彼得堡|Saint Petersburg/St Petersburg|59.939|30.314
+RU|Europe/Kaliningrad|加里寧格勒|Kaliningrad|54.706|20.511
+RU|Europe/Samara|薩馬拉|Samara|53.200|50.150
+RU|Asia/Yekaterinburg|葉卡捷琳堡|Yekaterinburg|56.852|60.612
+RU|Asia/Omsk|鄂木斯克|Omsk|54.992|73.369
+RU|Asia/Novosibirsk|新西伯利亞|Novosibirsk|55.041|82.935
+RU|Asia/Krasnoyarsk|克拉斯諾亞爾斯克|Krasnoyarsk|56.018|92.867
+RU|Asia/Irkutsk|伊爾庫次克|Irkutsk|52.298|104.296
+RU|Asia/Yakutsk|雅庫次克|Yakutsk|62.034|129.733
+RU|Asia/Vladivostok|海參崴|Vladivostok|43.106|131.874
+RU|Asia/Magadan|馬加丹|Magadan|59.564|150.803
+RU|Asia/Kamchatka|堪察加|Kamchatka/Petropavlovsk-Kamchatsky|53.044|158.651
+GB|Europe/London|倫敦|London|51.509|-0.126
+GB|Europe/London|曼徹斯特|Manchester|53.481|-2.237
+GB|Europe/London|愛丁堡|Edinburgh|55.952|-3.196
+IE|Europe/Dublin|都柏林|Dublin|53.333|-6.249
+PT|Europe/Lisbon|里斯本|Lisbon|38.717|-9.133
+PT|Europe/Lisbon|波多|Porto|41.150|-8.611
+PT|Atlantic/Madeira|馬德拉|Madeira/Funchal|32.666|-16.925
+PT|Atlantic/Azores|亞速群島|Azores/Ponta Delgada|37.740|-25.669
+ES|Europe/Madrid|馬德里|Madrid|40.416|-3.703
+ES|Europe/Madrid|巴塞隆納|Barcelona|41.389|2.159
+ES|Europe/Madrid|塞維亞|Seville/Sevilla|37.383|-5.973
+ES|Atlantic/Canary|加那利群島|Canary Islands/Tenerife/Las Palmas|28.100|-15.400
+FR|Europe/Paris|巴黎|Paris|48.853|2.349
+FR|Europe/Paris|里昂|Lyon|45.748|4.847
+FR|Europe/Paris|尼斯|Nice|43.703|7.266
+BE|Europe/Brussels|布魯塞爾|Brussels|50.850|4.349
+NL|Europe/Amsterdam|阿姆斯特丹|Amsterdam|52.374|4.890
+LU|Europe/Luxembourg|盧森堡|Luxembourg|49.612|6.130
+DE|Europe/Berlin|柏林|Berlin|52.524|13.411
+DE|Europe/Berlin|慕尼黑|Munich/München|48.137|11.575
+DE|Europe/Berlin|法蘭克福|Frankfurt|50.110|8.682
+DE|Europe/Berlin|漢堡|Hamburg|53.551|9.993
+CH|Europe/Zurich|蘇黎世|Zurich|47.367|8.550
+CH|Europe/Zurich|日內瓦|Geneva|46.204|6.143
+AT|Europe/Vienna|維也納|Vienna|48.208|16.372
+IT|Europe/Rome|羅馬|Rome|41.892|12.511
+IT|Europe/Rome|米蘭|Milan|45.464|9.190
+IT|Europe/Rome|威尼斯|Venice|45.437|12.333
+IT|Europe/Rome|佛羅倫斯|Florence|43.779|11.246
+MT|Europe/Malta|瓦萊塔|Valletta/Malta|35.900|14.515
+MC|Europe/Monaco|摩納哥|Monaco|43.733|7.417
+VA|Europe/Vatican|梵蒂岡|Vatican|41.903|12.453
+DK|Europe/Copenhagen|哥本哈根|Copenhagen|55.676|12.566
+NO|Europe/Oslo|奧斯陸|Oslo|59.913|10.746
+SE|Europe/Stockholm|斯德哥爾摩|Stockholm|59.329|18.069
+FI|Europe/Helsinki|赫爾辛基|Helsinki|60.170|24.935
+IS|Atlantic/Reykjavik|雷克雅維克|Reykjavik|64.135|-21.895
+EE|Europe/Tallinn|塔林|Tallinn|59.437|24.754
+LV|Europe/Riga|里加|Riga|56.946|24.106
+LT|Europe/Vilnius|維爾紐斯|Vilnius|54.689|25.280
+PL|Europe/Warsaw|華沙|Warsaw|52.230|21.012
+PL|Europe/Warsaw|克拉科夫|Krakow|50.061|19.937
+CZ|Europe/Prague|布拉格|Prague|50.088|14.421
+SK|Europe/Bratislava|布拉提斯拉瓦|Bratislava|48.148|17.107
+HU|Europe/Budapest|布達佩斯|Budapest|47.498|19.040
+SI|Europe/Ljubljana|盧布爾雅那|Ljubljana|46.051|14.505
+HR|Europe/Zagreb|札格瑞布|Zagreb|45.814|15.978
+HR|Europe/Zagreb|杜布羅夫尼克|Dubrovnik|42.641|18.109
+BA|Europe/Sarajevo|塞拉耶佛|Sarajevo|43.849|18.356
+RS|Europe/Belgrade|貝爾格勒|Belgrade|44.804|20.465
+ME|Europe/Podgorica|波德里查|Podgorica|42.441|19.264
+MK|Europe/Skopje|史高比耶|Skopje|41.996|21.431
+AL|Europe/Tirane|地拉那|Tirana|41.328|19.819
+GR|Europe/Athens|雅典|Athens|37.984|23.728
+BG|Europe/Sofia|索非亞|Sofia|42.698|23.324
+RO|Europe/Bucharest|布加勒斯特|Bucharest|44.432|26.106
+MD|Europe/Chisinau|奇西瑙|Chisinau|47.006|28.858
+UA|Europe/Kyiv|基輔|Kyiv/Kiev|50.455|30.524
+UA|Europe/Kyiv|敖德薩|Odesa/Odessa|46.477|30.733
+BY|Europe/Minsk|明斯克|Minsk|53.900|27.567
+EG|Africa/Cairo|開羅|Cairo|30.063|31.250
+MA|Africa/Casablanca|卡薩布蘭卡|Casablanca|33.588|-7.611
+MA|Africa/Casablanca|馬拉喀什|Marrakesh/Marrakech|31.634|-8.000
+DZ|Africa/Algiers|阿爾及爾|Algiers|36.732|3.087
+TN|Africa/Tunis|突尼斯|Tunis|36.819|10.166
+LY|Africa/Tripoli|的黎波里|Tripoli|32.887|13.187
+SD|Africa/Khartoum|喀土穆|Khartoum|15.552|32.532
+ET|Africa/Addis_Ababa|阿迪斯阿貝巴|Addis Ababa|9.025|38.747
+KE|Africa/Nairobi|奈洛比|Nairobi|-1.283|36.817
+TZ|Africa/Dar_es_Salaam|三蘭港|Dar es Salaam|-6.823|39.270
+TZ|Africa/Dar_es_Salaam|尚吉巴|Zanzibar|-6.164|39.198
+UG|Africa/Kampala|坎帕拉|Kampala|0.316|32.582
+RW|Africa/Kigali|吉佳利|Kigali|-1.950|30.059
+NG|Africa/Lagos|拉哥斯|Lagos|6.454|3.395
+NG|Africa/Lagos|阿布加|Abuja|9.058|7.495
+GH|Africa/Accra|阿克拉|Accra|5.556|-0.197
+CI|Africa/Abidjan|阿必尚|Abidjan|5.354|-4.002
+SN|Africa/Dakar|達喀爾|Dakar|14.694|-17.444
+CM|Africa/Douala|杜阿拉|Douala/Yaounde/雅溫得|4.048|9.704
+CD|Africa/Kinshasa|金夏沙|Kinshasa|-4.328|15.314
+CD|Africa/Lubumbashi|盧本巴希|Lubumbashi|-11.661|27.479
+AO|Africa/Luanda|羅安達|Luanda|-8.837|13.234
+ZA|Africa/Johannesburg|約翰尼斯堡|Johannesburg|-26.202|28.044
+ZA|Africa/Johannesburg|開普敦|Cape Town|-33.926|18.423
+ZW|Africa/Harare|哈拉雷|Harare|-17.828|31.053
+ZM|Africa/Lusaka|路沙卡|Lusaka|-15.407|28.287
+MZ|Africa/Maputo|馬布多|Maputo|-25.966|32.583
+NA|Africa/Windhoek|溫荷克|Windhoek|-22.559|17.083
+BW|Africa/Gaborone|嘉柏隆里|Gaborone|-24.655|25.909
+MG|Indian/Antananarivo|安塔那那利佛|Antananarivo|-18.914|47.536
+MU|Indian/Mauritius|路易士港|Port Louis|-20.162|57.499
+SC|Indian/Mahe|維多利亞|Victoria Seychelles/Mahe|-4.667|55.467
+RE|Indian/Reunion|聖但尼|Saint-Denis Reunion|-20.867|55.467
+CV|Atlantic/Cape_Verde|普拉亞|Praia|14.932|-23.513
+US|America/New_York|紐約|New York/NYC|40.714|-74.006
+US|America/New_York|華盛頓特區|Washington DC|38.895|-77.036
+US|America/New_York|波士頓|Boston|42.358|-71.060
+US|America/New_York|費城|Philadelphia|39.952|-75.164
+US|America/New_York|亞特蘭大|Atlanta|33.749|-84.388
+US|America/New_York|邁阿密|Miami|25.774|-80.194
+US|America/New_York|奧蘭多|Orlando|28.538|-81.379
+US|America/Detroit|底特律|Detroit|42.331|-83.046
+US|America/Chicago|芝加哥|Chicago|41.850|-87.650
+US|America/Chicago|休士頓|Houston|29.763|-95.363
+US|America/Chicago|達拉斯|Dallas|32.783|-96.807
+US|America/Chicago|奧斯汀|Austin|30.267|-97.743
+US|America/Chicago|紐奧良|New Orleans|29.955|-90.075
+US|America/Chicago|明尼亞波利|Minneapolis|44.980|-93.264
+US|America/Denver|丹佛|Denver|39.739|-104.985
+US|America/Denver|鹽湖城|Salt Lake City|40.761|-111.891
+US|America/Phoenix|鳳凰城|Phoenix/Arizona/亞利桑那|33.448|-112.074
+US|America/Los_Angeles|洛杉磯|Los Angeles/LA|34.052|-118.244
+US|America/Los_Angeles|舊金山|San Francisco|37.775|-122.419
+US|America/Los_Angeles|聖地牙哥（加州）|San Diego|32.716|-117.165
+US|America/Los_Angeles|西雅圖|Seattle|47.606|-122.332
+US|America/Los_Angeles|波特蘭|Portland|45.523|-122.676
+US|America/Los_Angeles|拉斯維加斯|Las Vegas|36.175|-115.137
+US|America/Anchorage|安克拉治|Anchorage/Alaska/阿拉斯加|61.218|-149.900
+US|Pacific/Honolulu|檀香山|Honolulu/Hawaii/夏威夷|21.307|-157.858
+PR|America/Puerto_Rico|聖胡安|San Juan|18.466|-66.106
+GU|Pacific/Guam|關島|Guam/Hagatna|13.476|144.749
+AS|Pacific/Pago_Pago|巴哥巴哥|Pago Pago|-14.278|-170.702
+CA|America/Toronto|多倫多|Toronto|43.700|-79.416
+CA|America/Toronto|渥太華|Ottawa|45.411|-75.698
+CA|America/Toronto|蒙特婁|Montreal|45.509|-73.588
+CA|America/Halifax|哈利法克斯|Halifax|44.646|-63.573
+CA|America/St_Johns|聖約翰斯|St Johns/Newfoundland/紐芬蘭|47.565|-52.709
+CA|America/Winnipeg|溫尼伯|Winnipeg|49.884|-97.147
+CA|America/Regina|里賈納|Regina/Saskatchewan|50.450|-104.618
+CA|America/Edmonton|卡加利|Calgary|51.050|-114.085
+CA|America/Edmonton|艾德蒙頓|Edmonton|53.550|-113.469
+CA|America/Vancouver|溫哥華|Vancouver|49.250|-123.119
+CA|America/Whitehorse|白馬市|Whitehorse/Yukon|60.716|-135.054
+GL|America/Nuuk|努克|Nuuk/Greenland|64.183|-51.722
+BM|Atlantic/Bermuda|漢密爾頓|Hamilton Bermuda|32.283|-64.767
+MX|America/Mexico_City|墨西哥城|Mexico City/CDMX|19.428|-99.128
+MX|America/Mexico_City|瓜達拉哈拉|Guadalajara|20.667|-103.392
+MX|America/Mexico_City|普埃布拉|Puebla|19.038|-98.203
+MX|America/Mexico_City|瓦哈卡|Oaxaca|17.065|-96.724
+MX|America/Mexico_City|阿卡普科|Acapulco|16.853|-99.823
+MX|America/Monterrey|蒙特雷|Monterrey|25.675|-100.318
+MX|America/Cancun|坎昆|Cancun/Quintana Roo/Tulum/Playa del Carmen|21.174|-86.847
+MX|America/Merida|梅里達|Merida/Yucatan|20.975|-89.617
+MX|America/Mazatlan|馬薩特蘭|Mazatlan|23.233|-106.406
+MX|America/Mazatlan|洛斯卡沃斯|Los Cabos/Cabo San Lucas|22.891|-109.912
+MX|America/Hermosillo|埃莫西約|Hermosillo/Sonora|29.103|-110.977
+MX|America/Chihuahua|奇瓦瓦|Chihuahua|28.635|-106.089
+MX|America/Ciudad_Juarez|華雷斯城|Ciudad Juarez|31.733|-106.483
+MX|America/Tijuana|提華納|Tijuana|32.503|-117.004
+GT|America/Guatemala|瓜地馬拉市|Guatemala City|14.641|-90.513
+BZ|America/Belize|貝爾墨潘|Belmopan/Belize City|17.500|-88.198
+SV|America/El_Salvador|聖薩爾瓦多|San Salvador|13.689|-89.187
+HN|America/Tegucigalpa|德古斯加巴|Tegucigalpa|14.082|-87.207
+NI|America/Managua|馬拿瓜|Managua|12.133|-86.250
+CR|America/Costa_Rica|聖荷西|San Jose Costa Rica|9.933|-84.083
+PA|America/Panama|巴拿馬城|Panama City|9.334|-79.892
+CU|America/Havana|哈瓦那|Havana|23.133|-82.383
+JM|America/Jamaica|京斯敦|Kingston|17.997|-76.794
+HT|America/Port-au-Prince|太子港|Port-au-Prince|18.543|-72.339
+DO|America/Santo_Domingo|聖多明哥|Santo Domingo|18.472|-69.892
+BS|America/Nassau|拿索|Nassau|25.058|-77.343
+TT|America/Port_of_Spain|西班牙港|Port of Spain|10.667|-61.519
+BB|America/Barbados|布里奇頓|Bridgetown|13.107|-59.620
+CO|America/Bogota|波哥大|Bogota|4.610|-74.082
+CO|America/Bogota|麥德林|Medellin|6.252|-75.564
+VE|America/Caracas|卡拉卡斯|Caracas|10.488|-66.879
+EC|America/Guayaquil|基多|Quito|-0.230|-78.525
+EC|America/Guayaquil|瓜亞基爾|Guayaquil|-2.196|-79.886
+EC|Pacific/Galapagos|加拉巴哥群島|Galapagos|-0.900|-89.600
+PE|America/Lima|利馬|Lima|-12.043|-77.028
+PE|America/Lima|庫斯科|Cusco/Cuzco/Machu Picchu/馬丘比丘|-13.523|-71.967
+BO|America/La_Paz|拉巴斯|La Paz|-16.500|-68.150
+BO|America/La_Paz|聖克魯斯|Santa Cruz Bolivia|-17.784|-63.181
+BR|America/Sao_Paulo|聖保羅|Sao Paulo|-23.547|-46.636
+BR|America/Sao_Paulo|里約熱內盧|Rio de Janeiro/Rio|-22.906|-43.182
+BR|America/Sao_Paulo|巴西利亞|Brasilia|-15.780|-47.930
+BR|America/Sao_Paulo|阿雷格里港|Porto Alegre|-30.033|-51.230
+BR|America/Sao_Paulo|伊瓜蘇|Foz do Iguacu/Iguazu|-25.548|-54.588
+BR|America/Bahia|薩爾瓦多|Salvador/Bahia/巴伊亞|-12.971|-38.511
+BR|America/Recife|累西腓|Recife|-8.054|-34.881
+BR|America/Fortaleza|福塔雷薩|Fortaleza|-3.717|-38.543
+BR|America/Belem|貝倫|Belem|-1.456|-48.504
+BR|America/Noronha|費爾南多迪諾羅尼亞|Fernando de Noronha|-3.850|-32.417
+BR|America/Manaus|瑪瑙斯|Manaus/Amazonas/亞馬遜|-3.102|-60.025
+BR|America/Cuiaba|庫亞巴|Cuiaba|-15.596|-56.097
+BR|America/Campo_Grande|大坎普|Campo Grande|-20.443|-54.646
+BR|America/Porto_Velho|波多韋柳|Porto Velho|-8.762|-63.904
+BR|America/Rio_Branco|里約布蘭科|Rio Branco/Acre|-9.975|-67.810
+AR|America/Argentina/Buenos_Aires|布宜諾斯艾利斯|Buenos Aires|-34.613|-58.377
+AR|America/Argentina/Cordoba|科爾多瓦|Cordoba Argentina|-31.400|-64.183
+AR|America/Argentina/Mendoza|門多薩|Mendoza|-32.891|-68.827
+AR|America/Argentina/Ushuaia|烏斯懷亞|Ushuaia|-54.811|-68.316
+CL|America/Santiago|聖地牙哥|Santiago|-33.457|-70.648
+CL|America/Punta_Arenas|蓬塔阿雷納斯|Punta Arenas/Patagonia/巴塔哥尼亞|-53.155|-70.911
+CL|Pacific/Easter|復活節島|Easter Island/Rapa Nui|-27.150|-109.433
+PY|America/Asuncion|亞松森|Asuncion|-25.286|-57.647
+UY|America/Montevideo|蒙特維多|Montevideo|-34.903|-56.188
+GY|America/Guyana|喬治城|Georgetown|6.804|-58.155
+SR|America/Paramaribo|巴拉馬利波|Paramaribo|5.866|-55.167
+GF|America/Cayenne|開雲|Cayenne|4.933|-52.333
+FK|Atlantic/Stanley|史坦利|Stanley Falklands|-51.700|-57.850
+AU|Australia/Sydney|雪梨|Sydney|-33.868|151.207
+AU|Australia/Sydney|坎培拉|Canberra|-35.283|149.128
+AU|Australia/Melbourne|墨爾本|Melbourne|-37.814|144.963
+AU|Australia/Brisbane|布里斯本|Brisbane|-27.468|153.028
+AU|Australia/Brisbane|黃金海岸|Gold Coast|-28.000|153.431
+AU|Australia/Adelaide|阿德雷德|Adelaide|-34.929|138.599
+AU|Australia/Darwin|達爾文|Darwin|-12.461|130.842
+AU|Australia/Perth|伯斯|Perth|-31.952|115.861
+AU|Australia/Hobart|荷巴特|Hobart/Tasmania/塔斯馬尼亞|-42.879|147.329
+AU|Australia/Eucla|尤克拉|Eucla|-31.717|128.867
+AU|Australia/Lord_Howe|豪勳爵島|Lord Howe Island|-31.550|159.083
+NZ|Pacific/Auckland|奧克蘭|Auckland|-36.849|174.763
+NZ|Pacific/Auckland|威靈頓|Wellington|-41.287|174.776
+NZ|Pacific/Auckland|基督城|Christchurch|-43.533|172.633
+NZ|Pacific/Chatham|查塔姆群島|Chatham Islands|-43.950|-176.550
+FJ|Pacific/Fiji|蘇瓦|Suva|-18.142|178.441
+PG|Pacific/Port_Moresby|莫士比港|Port Moresby|-9.477|147.151
+SB|Pacific/Guadalcanal|荷尼阿拉|Honiara|-9.433|159.950
+VU|Pacific/Efate|維拉港|Port Vila|-17.736|168.314
+NC|Pacific/Noumea|努美阿|Noumea|-22.274|166.449
+WS|Pacific/Apia|阿皮亞|Apia|-13.833|-171.767
+TO|Pacific/Tongatapu|努瓜婁發|Nukualofa|-21.139|-175.202
+TV|Pacific/Funafuti|富納富提|Funafuti|-8.524|179.194
+CK|Pacific/Rarotonga|拉羅湯加|Rarotonga|-21.233|-159.767
+PF|Pacific/Tahiti|大溪地|Tahiti/Papeete|-17.537|-149.566
+PF|Pacific/Marquesas|馬克薩斯群島|Marquesas|-9.000|-139.500
+PW|Pacific/Palau|柯羅|Koror/Palau|7.340|134.473
+MH|Pacific/Majuro|馬久羅|Majuro|7.090|171.380
+KI|Pacific/Tarawa|塔拉瓦|Tarawa|1.328|172.977
+KI|Pacific/Kiritimati|聖誕島|Kiritimati/Christmas Island|1.867|-157.333
 `;
-  // Every IANA time zone by country, from tzdata zone.tab: country|zone|area note
+  // Every IANA time zone by country, from tzdata zone.tab: country|zone|area note|lat|lon
   const ZONE_DATA = `
-AD|Europe/Andorra
-AE|Asia/Dubai
-AF|Asia/Kabul
-AG|America/Antigua
-AI|America/Anguilla
-AL|Europe/Tirane
-AM|Asia/Yerevan
-AO|Africa/Luanda
-AQ|Antarctica/McMurdo|New Zealand time - McMurdo, South Pole
-AQ|Antarctica/Casey|Casey
-AQ|Antarctica/Davis|Davis
-AQ|Antarctica/DumontDUrville|Dumont-d'Urville
-AQ|Antarctica/Mawson|Mawson
-AQ|Antarctica/Palmer|Palmer
-AQ|Antarctica/Rothera|Rothera
-AQ|Antarctica/Syowa|Syowa
-AQ|Antarctica/Troll|Troll
-AQ|Antarctica/Vostok|Vostok
-AR|America/Argentina/Buenos_Aires|Buenos Aires (BA, CF)
-AR|America/Argentina/Cordoba|Argentina (most areas: CB, CC, CN, ER, FM, MN, SE, SF)
-AR|America/Argentina/Salta|Salta (SA, LP, NQ, RN)
-AR|America/Argentina/Jujuy|Jujuy (JY)
-AR|America/Argentina/Tucuman|Tucuman (TM)
-AR|America/Argentina/Catamarca|Catamarca (CT), Chubut (CH)
-AR|America/Argentina/La_Rioja|La Rioja (LR)
-AR|America/Argentina/San_Juan|San Juan (SJ)
-AR|America/Argentina/Mendoza|Mendoza (MZ)
-AR|America/Argentina/San_Luis|San Luis (SL)
-AR|America/Argentina/Rio_Gallegos|Santa Cruz (SC)
-AR|America/Argentina/Ushuaia|Tierra del Fuego (TF)
-AS|Pacific/Pago_Pago
-AT|Europe/Vienna
-AU|Australia/Lord_Howe|Lord Howe Island
-AU|Antarctica/Macquarie|Macquarie Island
-AU|Australia/Hobart|Tasmania
-AU|Australia/Melbourne|Victoria
-AU|Australia/Sydney|New South Wales (most areas)
-AU|Australia/Broken_Hill|New South Wales (Yancowinna)
-AU|Australia/Brisbane|Queensland (most areas)
-AU|Australia/Lindeman|Queensland (Whitsunday Islands)
-AU|Australia/Adelaide|South Australia
-AU|Australia/Darwin|Northern Territory
-AU|Australia/Perth|Western Australia (most areas)
-AU|Australia/Eucla|Western Australia (Eucla)
-AW|America/Aruba
-AX|Europe/Mariehamn
-AZ|Asia/Baku
-BA|Europe/Sarajevo
-BB|America/Barbados
-BD|Asia/Dhaka
-BE|Europe/Brussels
-BF|Africa/Ouagadougou
-BG|Europe/Sofia
-BH|Asia/Bahrain
-BI|Africa/Bujumbura
-BJ|Africa/Porto-Novo
-BL|America/St_Barthelemy
-BM|Atlantic/Bermuda
-BN|Asia/Brunei
-BO|America/La_Paz
-BQ|America/Kralendijk
-BR|America/Noronha|Atlantic islands
-BR|America/Belem|Para (east), Amapa
-BR|America/Fortaleza|Brazil (northeast: MA, PI, CE, RN, PB)
-BR|America/Recife|Pernambuco
-BR|America/Araguaina|Tocantins
-BR|America/Maceio|Alagoas, Sergipe
-BR|America/Bahia|Bahia
-BR|America/Sao_Paulo|Brazil (southeast: GO, DF, MG, ES, RJ, SP, PR, SC, RS)
-BR|America/Campo_Grande|Mato Grosso do Sul
-BR|America/Cuiaba|Mato Grosso
-BR|America/Santarem|Para (west)
-BR|America/Porto_Velho|Rondonia
-BR|America/Boa_Vista|Roraima
-BR|America/Manaus|Amazonas (east)
-BR|America/Eirunepe|Amazonas (west)
-BR|America/Rio_Branco|Acre
-BS|America/Nassau
-BT|Asia/Thimphu
-BW|Africa/Gaborone
-BY|Europe/Minsk
-BZ|America/Belize
-CA|America/St_Johns|Newfoundland, Labrador (SE)
-CA|America/Halifax|Atlantic - NS (most areas), PE
-CA|America/Glace_Bay|Atlantic - NS (Cape Breton)
-CA|America/Moncton|Atlantic - New Brunswick
-CA|America/Goose_Bay|Atlantic - Labrador (most areas)
-CA|America/Blanc-Sablon|AST - QC (Lower North Shore)
-CA|America/Toronto|Eastern - ON & QC (most areas)
-CA|America/Iqaluit|Eastern - NU (most areas)
-CA|America/Atikokan|EST - ON (Atikokan), NU (Coral H)
-CA|America/Winnipeg|EST - Manitoba, ON (northwest)
-CA|America/Resolute|Central - NU (Resolute)
-CA|America/Rankin_Inlet|Central - NU (central)
-CA|America/Regina|CST - SK (most areas)
-CA|America/Swift_Current|CST - SK (midwest)
-CA|America/Edmonton|CST - AB, BC(E), NT(E), SK(W)
-CA|America/Cambridge_Bay|Mountain - NU (west)
-CA|America/Inuvik|CST - NT (west)
-CA|America/Vancouver|MST - BC (most areas)
-CA|America/Creston|MST - BC (Creston)
-CA|America/Dawson_Creek|MST - BC (Dawson Cr, Ft St John)
-CA|America/Fort_Nelson|MST - BC (Ft Nelson)
-CA|America/Whitehorse|MST - Yukon (east)
-CA|America/Dawson|MST - Yukon (west)
-CC|Indian/Cocos
-CD|Africa/Kinshasa|Dem. Rep. of Congo (west)
-CD|Africa/Lubumbashi|Dem. Rep. of Congo (east)
-CF|Africa/Bangui
-CG|Africa/Brazzaville
-CH|Europe/Zurich
-CI|Africa/Abidjan
-CK|Pacific/Rarotonga
-CL|America/Santiago|most of Chile
-CL|America/Coyhaique|Aysen Region
-CL|America/Punta_Arenas|Magallanes Region
-CL|Pacific/Easter|Easter Island
-CM|Africa/Douala
-CN|Asia/Shanghai|Beijing Time
-CN|Asia/Urumqi|Xinjiang Time
-CO|America/Bogota
-CR|America/Costa_Rica
-CU|America/Havana
-CV|Atlantic/Cape_Verde
-CW|America/Curacao
-CX|Indian/Christmas
-CY|Asia/Nicosia|most of Cyprus
-CY|Asia/Famagusta|Northern Cyprus
-CZ|Europe/Prague
-DE|Europe/Berlin|most of Germany
-DE|Europe/Busingen|Busingen
-DJ|Africa/Djibouti
-DK|Europe/Copenhagen
-DM|America/Dominica
-DO|America/Santo_Domingo
-DZ|Africa/Algiers
-EC|America/Guayaquil|Ecuador (mainland)
-EC|Pacific/Galapagos|Galapagos Islands
-EE|Europe/Tallinn
-EG|Africa/Cairo
-EH|Africa/El_Aaiun
-ER|Africa/Asmara
-ES|Europe/Madrid|Spain (mainland)
-ES|Africa/Ceuta|Ceuta, Melilla
-ES|Atlantic/Canary|Canary Islands
-ET|Africa/Addis_Ababa
-FI|Europe/Helsinki
-FJ|Pacific/Fiji
-FK|Atlantic/Stanley
-FM|Pacific/Chuuk|Chuuk/Truk, Yap
-FM|Pacific/Pohnpei|Pohnpei/Ponape
-FM|Pacific/Kosrae|Kosrae
-FO|Atlantic/Faroe
-FR|Europe/Paris
-GA|Africa/Libreville
-GB|Europe/London
-GD|America/Grenada
-GE|Asia/Tbilisi
-GF|America/Cayenne
-GG|Europe/Guernsey
-GH|Africa/Accra
-GI|Europe/Gibraltar
-GL|America/Nuuk|most of Greenland
-GL|America/Danmarkshavn|National Park (east coast)
-GL|America/Scoresbysund|Scoresbysund/Ittoqqortoormiit
-GL|America/Thule|Thule/Pituffik
-GM|Africa/Banjul
-GN|Africa/Conakry
-GP|America/Guadeloupe
-GQ|Africa/Malabo
-GR|Europe/Athens
-GS|Atlantic/South_Georgia
-GT|America/Guatemala
-GU|Pacific/Guam
-GW|Africa/Bissau
-GY|America/Guyana
-HK|Asia/Hong_Kong
-HN|America/Tegucigalpa
-HR|Europe/Zagreb
-HT|America/Port-au-Prince
-HU|Europe/Budapest
-ID|Asia/Jakarta|Java, Sumatra
-ID|Asia/Pontianak|Borneo (west, central)
-ID|Asia/Makassar|Borneo (east, south), Sulawesi/Celebes, Bali, Nusa Tengarra, Timor (west)
-ID|Asia/Jayapura|New Guinea (West Papua / Irian Jaya), Malukus/Moluccas
-IE|Europe/Dublin
-IL|Asia/Jerusalem
-IM|Europe/Isle_of_Man
-IN|Asia/Kolkata
-IO|Indian/Chagos
-IQ|Asia/Baghdad
-IR|Asia/Tehran
-IS|Atlantic/Reykjavik
-IT|Europe/Rome
-JE|Europe/Jersey
-JM|America/Jamaica
-JO|Asia/Amman
-JP|Asia/Tokyo
-KE|Africa/Nairobi
-KG|Asia/Bishkek
-KH|Asia/Phnom_Penh
-KI|Pacific/Tarawa|Gilbert Islands
-KI|Pacific/Kanton|Phoenix Islands
-KI|Pacific/Kiritimati|Line Islands
-KM|Indian/Comoro
-KN|America/St_Kitts
-KP|Asia/Pyongyang
-KR|Asia/Seoul
-KW|Asia/Kuwait
-KY|America/Cayman
-KZ|Asia/Almaty|most of Kazakhstan
-KZ|Asia/Qyzylorda|Qyzylorda/Kyzylorda/Kzyl-Orda
-KZ|Asia/Qostanay|Qostanay/Kostanay/Kustanay
-KZ|Asia/Aqtobe|Aqtobe/Aktobe
-KZ|Asia/Aqtau|Mangghystau/Mankistau
-KZ|Asia/Atyrau|Atyrau/Atirau/Gur'yev
-KZ|Asia/Oral|West Kazakhstan
-LA|Asia/Vientiane
-LB|Asia/Beirut
-LC|America/St_Lucia
-LI|Europe/Vaduz
-LK|Asia/Colombo
-LR|Africa/Monrovia
-LS|Africa/Maseru
-LT|Europe/Vilnius
-LU|Europe/Luxembourg
-LV|Europe/Riga
-LY|Africa/Tripoli
-MA|Africa/Casablanca
-MC|Europe/Monaco
-MD|Europe/Chisinau
-ME|Europe/Podgorica
-MF|America/Marigot
-MG|Indian/Antananarivo
-MH|Pacific/Majuro|most of Marshall Islands
-MH|Pacific/Kwajalein|Kwajalein
-MK|Europe/Skopje
-ML|Africa/Bamako
-MM|Asia/Yangon
-MN|Asia/Ulaanbaatar|most of Mongolia
-MN|Asia/Hovd|Bayan-Olgii, Hovd, Uvs
-MO|Asia/Macau
-MP|Pacific/Saipan
-MQ|America/Martinique
-MR|Africa/Nouakchott
-MS|America/Montserrat
-MT|Europe/Malta
-MU|Indian/Mauritius
-MV|Indian/Maldives
-MW|Africa/Blantyre
-MX|America/Mexico_City|Central Mexico
-MX|America/Cancun|Quintana Roo
-MX|America/Merida|Campeche, Yucatan
-MX|America/Monterrey|Durango; Coahuila, Nuevo Leon, Tamaulipas (most areas)
-MX|America/Matamoros|Coahuila, Nuevo Leon, Tamaulipas (US border)
-MX|America/Chihuahua|Chihuahua (most areas)
-MX|America/Ciudad_Juarez|Chihuahua (US border - west)
-MX|America/Ojinaga|Chihuahua (US border - east)
-MX|America/Mazatlan|Baja California Sur, Nayarit (most areas), Sinaloa
-MX|America/Bahia_Banderas|Bahia de Banderas
-MX|America/Hermosillo|Sonora
-MX|America/Tijuana|Baja California
-MY|Asia/Kuala_Lumpur|Malaysia (peninsula)
-MY|Asia/Kuching|Sabah, Sarawak
-MZ|Africa/Maputo
-NA|Africa/Windhoek
-NC|Pacific/Noumea
-NE|Africa/Niamey
-NF|Pacific/Norfolk
-NG|Africa/Lagos
-NI|America/Managua
-NL|Europe/Amsterdam
-NO|Europe/Oslo
-NP|Asia/Kathmandu
-NR|Pacific/Nauru
-NU|Pacific/Niue
-NZ|Pacific/Auckland|most of New Zealand
-NZ|Pacific/Chatham|Chatham Islands
-OM|Asia/Muscat
-PA|America/Panama
-PE|America/Lima
-PF|Pacific/Tahiti|Society Islands
-PF|Pacific/Marquesas|Marquesas Islands
-PF|Pacific/Gambier|Gambier Islands
-PG|Pacific/Port_Moresby|most of Papua New Guinea
-PG|Pacific/Bougainville|Bougainville
-PH|Asia/Manila
-PK|Asia/Karachi
-PL|Europe/Warsaw
-PM|America/Miquelon
-PN|Pacific/Pitcairn
-PR|America/Puerto_Rico
-PS|Asia/Gaza|Gaza Strip
-PS|Asia/Hebron|West Bank
-PT|Europe/Lisbon|Portugal (mainland)
-PT|Atlantic/Madeira|Madeira Islands
-PT|Atlantic/Azores|Azores
-PW|Pacific/Palau
-PY|America/Asuncion
-QA|Asia/Qatar
-RE|Indian/Reunion
-RO|Europe/Bucharest
-RS|Europe/Belgrade
-RU|Europe/Kaliningrad|MSK-01 - Kaliningrad
-RU|Europe/Moscow|MSK+00 - Moscow area
-UA|Europe/Simferopol|Crimea
-RU|Europe/Kirov|MSK+00 - Kirov
-RU|Europe/Volgograd|MSK+00 - Volgograd
-RU|Europe/Astrakhan|MSK+01 - Astrakhan
-RU|Europe/Saratov|MSK+01 - Saratov
-RU|Europe/Ulyanovsk|MSK+01 - Ulyanovsk
-RU|Europe/Samara|MSK+01 - Samara, Udmurtia
-RU|Asia/Yekaterinburg|MSK+02 - Urals
-RU|Asia/Omsk|MSK+03 - Omsk
-RU|Asia/Novosibirsk|MSK+04 - Novosibirsk
-RU|Asia/Barnaul|MSK+04 - Altai
-RU|Asia/Tomsk|MSK+04 - Tomsk
-RU|Asia/Novokuznetsk|MSK+04 - Kemerovo
-RU|Asia/Krasnoyarsk|MSK+04 - Krasnoyarsk area
-RU|Asia/Irkutsk|MSK+05 - Irkutsk, Buryatia
-RU|Asia/Chita|MSK+06 - Zabaykalsky
-RU|Asia/Yakutsk|MSK+06 - Lena River
-RU|Asia/Khandyga|MSK+06 - Tomponsky, Ust-Maysky
-RU|Asia/Vladivostok|MSK+07 - Amur River
-RU|Asia/Ust-Nera|MSK+07 - Oymyakonsky
-RU|Asia/Magadan|MSK+08 - Magadan
-RU|Asia/Sakhalin|MSK+08 - Sakhalin Island
-RU|Asia/Srednekolymsk|MSK+08 - Sakha (E), N Kuril Is
-RU|Asia/Kamchatka|MSK+09 - Kamchatka
-RU|Asia/Anadyr|MSK+09 - Bering Sea
-RW|Africa/Kigali
-SA|Asia/Riyadh
-SB|Pacific/Guadalcanal
-SC|Indian/Mahe
-SD|Africa/Khartoum
-SE|Europe/Stockholm
-SG|Asia/Singapore
-SH|Atlantic/St_Helena
-SI|Europe/Ljubljana
-SJ|Arctic/Longyearbyen
-SK|Europe/Bratislava
-SL|Africa/Freetown
-SM|Europe/San_Marino
-SN|Africa/Dakar
-SO|Africa/Mogadishu
-SR|America/Paramaribo
-SS|Africa/Juba
-ST|Africa/Sao_Tome
-SV|America/El_Salvador
-SX|America/Lower_Princes
-SY|Asia/Damascus
-SZ|Africa/Mbabane
-TC|America/Grand_Turk
-TD|Africa/Ndjamena
-TF|Indian/Kerguelen
-TG|Africa/Lome
-TH|Asia/Bangkok
-TJ|Asia/Dushanbe
-TK|Pacific/Fakaofo
-TL|Asia/Dili
-TM|Asia/Ashgabat
-TN|Africa/Tunis
-TO|Pacific/Tongatapu
-TR|Europe/Istanbul
-TT|America/Port_of_Spain
-TV|Pacific/Funafuti
-TW|Asia/Taipei
-TZ|Africa/Dar_es_Salaam
-UA|Europe/Kyiv|most of Ukraine
-UG|Africa/Kampala
-UM|Pacific/Midway|Midway Islands
-UM|Pacific/Wake|Wake Island
-US|America/New_York|Eastern (most areas)
-US|America/Detroit|Eastern - MI (most areas)
-US|America/Kentucky/Louisville|Eastern - KY (Louisville area)
-US|America/Kentucky/Monticello|Eastern - KY (Wayne)
-US|America/Indiana/Indianapolis|Eastern - IN (most areas)
-US|America/Indiana/Vincennes|Eastern - IN (Da, Du, K, Mn)
-US|America/Indiana/Winamac|Eastern - IN (Pulaski)
-US|America/Indiana/Marengo|Eastern - IN (Crawford)
-US|America/Indiana/Petersburg|Eastern - IN (Pike)
-US|America/Indiana/Vevay|Eastern - IN (Switzerland)
-US|America/Chicago|Central (most areas)
-US|America/Indiana/Tell_City|Central - IN (Perry)
-US|America/Indiana/Knox|Central - IN (Starke)
-US|America/Menominee|Central - MI (Wisconsin border)
-US|America/North_Dakota/Center|Central - ND (Oliver)
-US|America/North_Dakota/New_Salem|Central - ND (Morton rural)
-US|America/North_Dakota/Beulah|Central - ND (Mercer)
-US|America/Denver|Mountain (most areas)
-US|America/Boise|Mountain - ID (south), OR (east)
-US|America/Phoenix|MST - AZ (except Navajo)
-US|America/Los_Angeles|Pacific
-US|America/Anchorage|Alaska (most areas)
-US|America/Juneau|Alaska - Juneau area
-US|America/Sitka|Alaska - Sitka area
-US|America/Metlakatla|Alaska - Annette Island
-US|America/Yakutat|Alaska - Yakutat
-US|America/Nome|Alaska (west)
-US|America/Adak|Alaska - western Aleutians
-US|Pacific/Honolulu|Hawaii
-UY|America/Montevideo
-UZ|Asia/Samarkand|Uzbekistan (west)
-UZ|Asia/Tashkent|Uzbekistan (east)
-VA|Europe/Vatican
-VC|America/St_Vincent
-VE|America/Caracas
-VG|America/Tortola
-VI|America/St_Thomas
-VN|Asia/Ho_Chi_Minh
-VU|Pacific/Efate
-WF|Pacific/Wallis
-WS|Pacific/Apia
-YE|Asia/Aden
-YT|Indian/Mayotte
-ZA|Africa/Johannesburg
-ZM|Africa/Lusaka
-ZW|Africa/Harare
+AD|Europe/Andorra||42.500|1.517
+AE|Asia/Dubai||25.300|55.300
+AF|Asia/Kabul||34.517|69.200
+AG|America/Antigua||17.050|-61.800
+AI|America/Anguilla||18.200|-63.067
+AL|Europe/Tirane||41.333|19.833
+AM|Asia/Yerevan||40.183|44.500
+AO|Africa/Luanda||-8.800|13.233
+AQ|Antarctica/McMurdo|New Zealand time - McMurdo, South Pole|-77.833|166.600
+AQ|Antarctica/Casey|Casey|-66.283|110.517
+AQ|Antarctica/Davis|Davis|-68.583|77.967
+AQ|Antarctica/DumontDUrville|Dumont-d'Urville|-66.667|140.017
+AQ|Antarctica/Mawson|Mawson|-67.600|62.883
+AQ|Antarctica/Palmer|Palmer|-64.800|-64.100
+AQ|Antarctica/Rothera|Rothera|-67.567|-68.133
+AQ|Antarctica/Syowa|Syowa|-69.006|39.590
+AQ|Antarctica/Troll|Troll|-72.011|2.535
+AQ|Antarctica/Vostok|Vostok|-78.400|106.900
+AR|America/Argentina/Buenos_Aires|Buenos Aires (BA, CF)|-34.600|-58.450
+AR|America/Argentina/Cordoba|Argentina (most areas: CB, CC, CN, ER, FM, MN, SE, SF)|-31.400|-64.183
+AR|America/Argentina/Salta|Salta (SA, LP, NQ, RN)|-24.783|-65.417
+AR|America/Argentina/Jujuy|Jujuy (JY)|-24.183|-65.300
+AR|America/Argentina/Tucuman|Tucuman (TM)|-26.817|-65.217
+AR|America/Argentina/Catamarca|Catamarca (CT), Chubut (CH)|-28.467|-65.783
+AR|America/Argentina/La_Rioja|La Rioja (LR)|-29.433|-66.850
+AR|America/Argentina/San_Juan|San Juan (SJ)|-31.533|-68.517
+AR|America/Argentina/Mendoza|Mendoza (MZ)|-32.883|-68.817
+AR|America/Argentina/San_Luis|San Luis (SL)|-33.317|-66.350
+AR|America/Argentina/Rio_Gallegos|Santa Cruz (SC)|-51.633|-69.217
+AR|America/Argentina/Ushuaia|Tierra del Fuego (TF)|-54.800|-68.300
+AS|Pacific/Pago_Pago||-14.267|-170.700
+AT|Europe/Vienna||48.217|16.333
+AU|Australia/Lord_Howe|Lord Howe Island|-31.550|159.083
+AU|Antarctica/Macquarie|Macquarie Island|-54.500|158.950
+AU|Australia/Hobart|Tasmania|-42.883|147.317
+AU|Australia/Melbourne|Victoria|-37.817|144.967
+AU|Australia/Sydney|New South Wales (most areas)|-33.867|151.217
+AU|Australia/Broken_Hill|New South Wales (Yancowinna)|-31.950|141.450
+AU|Australia/Brisbane|Queensland (most areas)|-27.467|153.033
+AU|Australia/Lindeman|Queensland (Whitsunday Islands)|-20.267|149.000
+AU|Australia/Adelaide|South Australia|-34.917|138.583
+AU|Australia/Darwin|Northern Territory|-12.467|130.833
+AU|Australia/Perth|Western Australia (most areas)|-31.950|115.850
+AU|Australia/Eucla|Western Australia (Eucla)|-31.717|128.867
+AW|America/Aruba||12.500|-69.967
+AX|Europe/Mariehamn||60.100|19.950
+AZ|Asia/Baku||40.383|49.850
+BA|Europe/Sarajevo||43.867|18.417
+BB|America/Barbados||13.100|-59.617
+BD|Asia/Dhaka||23.717|90.417
+BE|Europe/Brussels||50.833|4.333
+BF|Africa/Ouagadougou||12.367|-1.517
+BG|Europe/Sofia||42.683|23.317
+BH|Asia/Bahrain||26.383|50.583
+BI|Africa/Bujumbura||-3.383|29.367
+BJ|Africa/Porto-Novo||6.483|2.617
+BL|America/St_Barthelemy||17.883|-62.850
+BM|Atlantic/Bermuda||32.283|-64.767
+BN|Asia/Brunei||4.933|114.917
+BO|America/La_Paz||-16.500|-68.150
+BQ|America/Kralendijk||12.151|-68.277
+BR|America/Noronha|Atlantic islands|-3.850|-32.417
+BR|America/Belem|Para (east), Amapa|-1.450|-48.483
+BR|America/Fortaleza|Brazil (northeast: MA, PI, CE, RN, PB)|-3.717|-38.500
+BR|America/Recife|Pernambuco|-8.050|-34.900
+BR|America/Araguaina|Tocantins|-7.200|-48.200
+BR|America/Maceio|Alagoas, Sergipe|-9.667|-35.717
+BR|America/Bahia|Bahia|-12.983|-38.517
+BR|America/Sao_Paulo|Brazil (southeast: GO, DF, MG, ES, RJ, SP, PR, SC, RS)|-23.533|-46.617
+BR|America/Campo_Grande|Mato Grosso do Sul|-20.450|-54.617
+BR|America/Cuiaba|Mato Grosso|-15.583|-56.083
+BR|America/Santarem|Para (west)|-2.433|-54.867
+BR|America/Porto_Velho|Rondonia|-8.767|-63.900
+BR|America/Boa_Vista|Roraima|2.817|-60.667
+BR|America/Manaus|Amazonas (east)|-3.133|-60.017
+BR|America/Eirunepe|Amazonas (west)|-6.667|-69.867
+BR|America/Rio_Branco|Acre|-9.967|-67.800
+BS|America/Nassau||25.083|-77.350
+BT|Asia/Thimphu||27.467|89.650
+BW|Africa/Gaborone||-24.650|25.917
+BY|Europe/Minsk||53.900|27.567
+BZ|America/Belize||17.500|-88.200
+CA|America/St_Johns|Newfoundland, Labrador (SE)|47.567|-52.717
+CA|America/Halifax|Atlantic - NS (most areas), PE|44.650|-63.600
+CA|America/Glace_Bay|Atlantic - NS (Cape Breton)|46.200|-59.950
+CA|America/Moncton|Atlantic - New Brunswick|46.100|-64.783
+CA|America/Goose_Bay|Atlantic - Labrador (most areas)|53.333|-60.417
+CA|America/Blanc-Sablon|AST - QC (Lower North Shore)|51.417|-57.117
+CA|America/Toronto|Eastern - ON & QC (most areas)|43.650|-79.383
+CA|America/Iqaluit|Eastern - NU (most areas)|63.733|-68.467
+CA|America/Atikokan|EST - ON (Atikokan), NU (Coral H)|48.759|-91.622
+CA|America/Winnipeg|EST - Manitoba, ON (northwest)|49.883|-97.150
+CA|America/Resolute|Central - NU (Resolute)|74.696|-94.829
+CA|America/Rankin_Inlet|Central - NU (central)|62.817|-92.083
+CA|America/Regina|CST - SK (most areas)|50.400|-104.650
+CA|America/Swift_Current|CST - SK (midwest)|50.283|-107.833
+CA|America/Edmonton|CST - AB, BC(E), NT(E), SK(W)|53.550|-113.467
+CA|America/Cambridge_Bay|Mountain - NU (west)|69.114|-105.053
+CA|America/Inuvik|CST - NT (west)|68.350|-133.717
+CA|America/Vancouver|MST - BC (most areas)|49.267|-123.117
+CA|America/Creston|MST - BC (Creston)|49.100|-116.517
+CA|America/Dawson_Creek|MST - BC (Dawson Cr, Ft St John)|55.767|-120.233
+CA|America/Fort_Nelson|MST - BC (Ft Nelson)|58.800|-122.700
+CA|America/Whitehorse|MST - Yukon (east)|60.717|-135.050
+CA|America/Dawson|MST - Yukon (west)|64.067|-139.417
+CC|Indian/Cocos||-12.167|96.917
+CD|Africa/Kinshasa|Dem. Rep. of Congo (west)|-4.300|15.300
+CD|Africa/Lubumbashi|Dem. Rep. of Congo (east)|-11.667|27.467
+CF|Africa/Bangui||4.367|18.583
+CG|Africa/Brazzaville||-4.267|15.283
+CH|Europe/Zurich||47.383|8.533
+CI|Africa/Abidjan||5.317|-4.033
+CK|Pacific/Rarotonga||-21.233|-159.767
+CL|America/Santiago|most of Chile|-33.450|-70.667
+CL|America/Coyhaique|Aysen Region|-45.567|-72.067
+CL|America/Punta_Arenas|Magallanes Region|-53.150|-70.917
+CL|Pacific/Easter|Easter Island|-27.150|-109.433
+CM|Africa/Douala||4.050|9.700
+CN|Asia/Shanghai|Beijing Time|31.233|121.467
+CN|Asia/Urumqi|Xinjiang Time|43.800|87.583
+CO|America/Bogota||4.600|-74.083
+CR|America/Costa_Rica||9.933|-84.083
+CU|America/Havana||23.133|-82.367
+CV|Atlantic/Cape_Verde||14.917|-23.517
+CW|America/Curacao||12.183|-69.000
+CX|Indian/Christmas||-10.417|105.717
+CY|Asia/Nicosia|most of Cyprus|35.167|33.367
+CY|Asia/Famagusta|Northern Cyprus|35.117|33.950
+CZ|Europe/Prague||50.083|14.433
+DE|Europe/Berlin|most of Germany|52.500|13.367
+DE|Europe/Busingen|Busingen|47.700|8.683
+DJ|Africa/Djibouti||11.600|43.150
+DK|Europe/Copenhagen||55.667|12.583
+DM|America/Dominica||15.300|-61.400
+DO|America/Santo_Domingo||18.467|-69.900
+DZ|Africa/Algiers||36.783|3.050
+EC|America/Guayaquil|Ecuador (mainland)|-2.167|-79.833
+EC|Pacific/Galapagos|Galapagos Islands|-0.900|-89.600
+EE|Europe/Tallinn||59.417|24.750
+EG|Africa/Cairo||30.050|31.250
+EH|Africa/El_Aaiun||27.150|-13.200
+ER|Africa/Asmara||15.333|38.883
+ES|Europe/Madrid|Spain (mainland)|40.400|-3.683
+ES|Africa/Ceuta|Ceuta, Melilla|35.883|-5.317
+ES|Atlantic/Canary|Canary Islands|28.100|-15.400
+ET|Africa/Addis_Ababa||9.033|38.700
+FI|Europe/Helsinki||60.167|24.967
+FJ|Pacific/Fiji||-18.133|178.417
+FK|Atlantic/Stanley||-51.700|-57.850
+FM|Pacific/Chuuk|Chuuk/Truk, Yap|7.417|151.783
+FM|Pacific/Pohnpei|Pohnpei/Ponape|6.967|158.217
+FM|Pacific/Kosrae|Kosrae|5.317|162.983
+FO|Atlantic/Faroe||62.017|-6.767
+FR|Europe/Paris||48.867|2.333
+GA|Africa/Libreville||0.383|9.450
+GB|Europe/London||51.508|-0.125
+GD|America/Grenada||12.050|-61.750
+GE|Asia/Tbilisi||41.717|44.817
+GF|America/Cayenne||4.933|-52.333
+GG|Europe/Guernsey||49.455|-2.536
+GH|Africa/Accra||5.550|-0.217
+GI|Europe/Gibraltar||36.133|-5.350
+GL|America/Nuuk|most of Greenland|64.183|-51.733
+GL|America/Danmarkshavn|National Park (east coast)|76.767|-18.667
+GL|America/Scoresbysund|Scoresbysund/Ittoqqortoormiit|70.483|-21.967
+GL|America/Thule|Thule/Pituffik|76.567|-68.783
+GM|Africa/Banjul||13.467|-16.650
+GN|Africa/Conakry||9.517|-13.717
+GP|America/Guadeloupe||16.233|-61.533
+GQ|Africa/Malabo||3.750|8.783
+GR|Europe/Athens||37.967|23.717
+GS|Atlantic/South_Georgia||-54.267|-36.533
+GT|America/Guatemala||14.633|-90.517
+GU|Pacific/Guam||13.467|144.750
+GW|Africa/Bissau||11.850|-15.583
+GY|America/Guyana||6.800|-58.167
+HK|Asia/Hong_Kong||22.283|114.150
+HN|America/Tegucigalpa||14.100|-87.217
+HR|Europe/Zagreb||45.800|15.967
+HT|America/Port-au-Prince||18.533|-72.333
+HU|Europe/Budapest||47.500|19.083
+ID|Asia/Jakarta|Java, Sumatra|-6.167|106.800
+ID|Asia/Pontianak|Borneo (west, central)|-0.033|109.333
+ID|Asia/Makassar|Borneo (east, south), Sulawesi/Celebes, Bali, Nusa Tengarra, Timor (west)|-5.117|119.400
+ID|Asia/Jayapura|New Guinea (West Papua / Irian Jaya), Malukus/Moluccas|-2.533|140.700
+IE|Europe/Dublin||53.333|-6.250
+IL|Asia/Jerusalem||31.781|35.224
+IM|Europe/Isle_of_Man||54.150|-4.467
+IN|Asia/Kolkata||22.533|88.367
+IO|Indian/Chagos||-7.333|72.417
+IQ|Asia/Baghdad||33.350|44.417
+IR|Asia/Tehran||35.667|51.433
+IS|Atlantic/Reykjavik||64.150|-21.850
+IT|Europe/Rome||41.900|12.483
+JE|Europe/Jersey||49.184|-2.107
+JM|America/Jamaica||17.968|-76.793
+JO|Asia/Amman||31.950|35.933
+JP|Asia/Tokyo||35.654|139.745
+KE|Africa/Nairobi||-1.283|36.817
+KG|Asia/Bishkek||42.900|74.600
+KH|Asia/Phnom_Penh||11.550|104.917
+KI|Pacific/Tarawa|Gilbert Islands|1.417|173.000
+KI|Pacific/Kanton|Phoenix Islands|-2.783|-171.717
+KI|Pacific/Kiritimati|Line Islands|1.867|-157.333
+KM|Indian/Comoro||-11.683|43.267
+KN|America/St_Kitts||17.300|-62.717
+KP|Asia/Pyongyang||39.017|125.750
+KR|Asia/Seoul||37.550|126.967
+KW|Asia/Kuwait||29.333|47.983
+KY|America/Cayman||19.300|-81.383
+KZ|Asia/Almaty|most of Kazakhstan|43.250|76.950
+KZ|Asia/Qyzylorda|Qyzylorda/Kyzylorda/Kzyl-Orda|44.800|65.467
+KZ|Asia/Qostanay|Qostanay/Kostanay/Kustanay|53.200|63.617
+KZ|Asia/Aqtobe|Aqtobe/Aktobe|50.283|57.167
+KZ|Asia/Aqtau|Mangghystau/Mankistau|44.517|50.267
+KZ|Asia/Atyrau|Atyrau/Atirau/Gur'yev|47.117|51.933
+KZ|Asia/Oral|West Kazakhstan|51.217|51.350
+LA|Asia/Vientiane||17.967|102.600
+LB|Asia/Beirut||33.883|35.500
+LC|America/St_Lucia||14.017|-61.000
+LI|Europe/Vaduz||47.150|9.517
+LK|Asia/Colombo||6.933|79.850
+LR|Africa/Monrovia||6.300|-10.783
+LS|Africa/Maseru||-29.467|27.500
+LT|Europe/Vilnius||54.683|25.317
+LU|Europe/Luxembourg||49.600|6.150
+LV|Europe/Riga||56.950|24.100
+LY|Africa/Tripoli||32.900|13.183
+MA|Africa/Casablanca||33.650|-7.583
+MC|Europe/Monaco||43.700|7.383
+MD|Europe/Chisinau||47.000|28.833
+ME|Europe/Podgorica||42.433|19.267
+MF|America/Marigot||18.067|-63.083
+MG|Indian/Antananarivo||-18.917|47.517
+MH|Pacific/Majuro|most of Marshall Islands|7.150|171.200
+MH|Pacific/Kwajalein|Kwajalein|9.083|167.333
+MK|Europe/Skopje||41.983|21.433
+ML|Africa/Bamako||12.650|-8.000
+MM|Asia/Yangon||16.783|96.167
+MN|Asia/Ulaanbaatar|most of Mongolia|47.917|106.883
+MN|Asia/Hovd|Bayan-Olgii, Hovd, Uvs|48.017|91.650
+MO|Asia/Macau||22.197|113.542
+MP|Pacific/Saipan||15.200|145.750
+MQ|America/Martinique||14.600|-61.083
+MR|Africa/Nouakchott||18.100|-15.950
+MS|America/Montserrat||16.717|-62.217
+MT|Europe/Malta||35.900|14.517
+MU|Indian/Mauritius||-20.167|57.500
+MV|Indian/Maldives||4.167|73.500
+MW|Africa/Blantyre||-15.783|35.000
+MX|America/Mexico_City|Central Mexico|19.400|-99.150
+MX|America/Cancun|Quintana Roo|21.083|-86.767
+MX|America/Merida|Campeche, Yucatan|20.967|-89.617
+MX|America/Monterrey|Durango; Coahuila, Nuevo Leon, Tamaulipas (most areas)|25.667|-100.317
+MX|America/Matamoros|Coahuila, Nuevo Leon, Tamaulipas (US border)|25.833|-97.500
+MX|America/Chihuahua|Chihuahua (most areas)|28.633|-106.083
+MX|America/Ciudad_Juarez|Chihuahua (US border - west)|31.733|-106.483
+MX|America/Ojinaga|Chihuahua (US border - east)|29.567|-104.417
+MX|America/Mazatlan|Baja California Sur, Nayarit (most areas), Sinaloa|23.217|-106.417
+MX|America/Bahia_Banderas|Bahia de Banderas|20.800|-105.250
+MX|America/Hermosillo|Sonora|29.067|-110.967
+MX|America/Tijuana|Baja California|32.533|-117.017
+MY|Asia/Kuala_Lumpur|Malaysia (peninsula)|3.167|101.700
+MY|Asia/Kuching|Sabah, Sarawak|1.550|110.333
+MZ|Africa/Maputo||-25.967|32.583
+NA|Africa/Windhoek||-22.567|17.100
+NC|Pacific/Noumea||-22.267|166.450
+NE|Africa/Niamey||13.517|2.117
+NF|Pacific/Norfolk||-29.050|167.967
+NG|Africa/Lagos||6.450|3.400
+NI|America/Managua||12.150|-86.283
+NL|Europe/Amsterdam||52.367|4.900
+NO|Europe/Oslo||59.917|10.750
+NP|Asia/Kathmandu||27.717|85.317
+NR|Pacific/Nauru||-0.517|166.917
+NU|Pacific/Niue||-19.017|-169.917
+NZ|Pacific/Auckland|most of New Zealand|-36.867|174.767
+NZ|Pacific/Chatham|Chatham Islands|-43.950|-176.550
+OM|Asia/Muscat||23.600|58.583
+PA|America/Panama||8.967|-79.533
+PE|America/Lima||-12.050|-77.050
+PF|Pacific/Tahiti|Society Islands|-17.533|-149.567
+PF|Pacific/Marquesas|Marquesas Islands|-9.000|-139.500
+PF|Pacific/Gambier|Gambier Islands|-23.133|-134.950
+PG|Pacific/Port_Moresby|most of Papua New Guinea|-9.500|147.167
+PG|Pacific/Bougainville|Bougainville|-6.217|155.567
+PH|Asia/Manila||14.587|120.968
+PK|Asia/Karachi||24.867|67.050
+PL|Europe/Warsaw||52.250|21.000
+PM|America/Miquelon||47.050|-56.333
+PN|Pacific/Pitcairn||-25.067|-130.083
+PR|America/Puerto_Rico||18.468|-66.106
+PS|Asia/Gaza|Gaza Strip|31.500|34.467
+PS|Asia/Hebron|West Bank|31.533|35.095
+PT|Europe/Lisbon|Portugal (mainland)|38.717|-9.133
+PT|Atlantic/Madeira|Madeira Islands|32.633|-16.900
+PT|Atlantic/Azores|Azores|37.733|-25.667
+PW|Pacific/Palau||7.333|134.483
+PY|America/Asuncion||-25.267|-57.667
+QA|Asia/Qatar||25.283|51.533
+RE|Indian/Reunion||-20.867|55.467
+RO|Europe/Bucharest||44.433|26.100
+RS|Europe/Belgrade||44.833|20.500
+RU|Europe/Kaliningrad|MSK-01 - Kaliningrad|54.717|20.500
+RU|Europe/Moscow|MSK+00 - Moscow area|55.756|37.618
+UA|Europe/Simferopol|Crimea|44.950|34.100
+RU|Europe/Kirov|MSK+00 - Kirov|58.600|49.650
+RU|Europe/Volgograd|MSK+00 - Volgograd|48.733|44.417
+RU|Europe/Astrakhan|MSK+01 - Astrakhan|46.350|48.050
+RU|Europe/Saratov|MSK+01 - Saratov|51.567|46.033
+RU|Europe/Ulyanovsk|MSK+01 - Ulyanovsk|54.333|48.400
+RU|Europe/Samara|MSK+01 - Samara, Udmurtia|53.200|50.150
+RU|Asia/Yekaterinburg|MSK+02 - Urals|56.850|60.600
+RU|Asia/Omsk|MSK+03 - Omsk|55.000|73.400
+RU|Asia/Novosibirsk|MSK+04 - Novosibirsk|55.033|82.917
+RU|Asia/Barnaul|MSK+04 - Altai|53.367|83.750
+RU|Asia/Tomsk|MSK+04 - Tomsk|56.500|84.967
+RU|Asia/Novokuznetsk|MSK+04 - Kemerovo|53.750|87.117
+RU|Asia/Krasnoyarsk|MSK+04 - Krasnoyarsk area|56.017|92.833
+RU|Asia/Irkutsk|MSK+05 - Irkutsk, Buryatia|52.267|104.333
+RU|Asia/Chita|MSK+06 - Zabaykalsky|52.050|113.467
+RU|Asia/Yakutsk|MSK+06 - Lena River|62.000|129.667
+RU|Asia/Khandyga|MSK+06 - Tomponsky, Ust-Maysky|62.656|135.554
+RU|Asia/Vladivostok|MSK+07 - Amur River|43.167|131.933
+RU|Asia/Ust-Nera|MSK+07 - Oymyakonsky|64.560|143.227
+RU|Asia/Magadan|MSK+08 - Magadan|59.567|150.800
+RU|Asia/Sakhalin|MSK+08 - Sakhalin Island|46.967|142.700
+RU|Asia/Srednekolymsk|MSK+08 - Sakha (E), N Kuril Is|67.467|153.717
+RU|Asia/Kamchatka|MSK+09 - Kamchatka|53.017|158.650
+RU|Asia/Anadyr|MSK+09 - Bering Sea|64.750|177.483
+RW|Africa/Kigali||-1.950|30.067
+SA|Asia/Riyadh||24.633|46.717
+SB|Pacific/Guadalcanal||-9.533|160.200
+SC|Indian/Mahe||-4.667|55.467
+SD|Africa/Khartoum||15.600|32.533
+SE|Europe/Stockholm||59.333|18.050
+SG|Asia/Singapore||1.283|103.850
+SH|Atlantic/St_Helena||-15.917|-5.700
+SI|Europe/Ljubljana||46.050|14.517
+SJ|Arctic/Longyearbyen||78.000|16.000
+SK|Europe/Bratislava||48.150|17.117
+SL|Africa/Freetown||8.500|-13.250
+SM|Europe/San_Marino||43.917|12.467
+SN|Africa/Dakar||14.667|-17.433
+SO|Africa/Mogadishu||2.067|45.367
+SR|America/Paramaribo||5.833|-55.167
+SS|Africa/Juba||4.850|31.617
+ST|Africa/Sao_Tome||0.333|6.733
+SV|America/El_Salvador||13.700|-89.200
+SX|America/Lower_Princes||18.051|-63.047
+SY|Asia/Damascus||33.500|36.300
+SZ|Africa/Mbabane||-26.300|31.100
+TC|America/Grand_Turk||21.467|-71.133
+TD|Africa/Ndjamena||12.117|15.050
+TF|Indian/Kerguelen||-49.353|70.218
+TG|Africa/Lome||6.133|1.217
+TH|Asia/Bangkok||13.750|100.517
+TJ|Asia/Dushanbe||38.583|68.800
+TK|Pacific/Fakaofo||-9.367|-171.233
+TL|Asia/Dili||-8.550|125.583
+TM|Asia/Ashgabat||37.950|58.383
+TN|Africa/Tunis||36.800|10.183
+TO|Pacific/Tongatapu||-21.133|-175.200
+TR|Europe/Istanbul||41.017|28.967
+TT|America/Port_of_Spain||10.650|-61.517
+TV|Pacific/Funafuti||-8.517|179.217
+TW|Asia/Taipei||25.050|121.500
+TZ|Africa/Dar_es_Salaam||-6.800|39.283
+UA|Europe/Kyiv|most of Ukraine|50.433|30.517
+UG|Africa/Kampala||0.317|32.417
+UM|Pacific/Midway|Midway Islands|28.217|-177.367
+UM|Pacific/Wake|Wake Island|19.283|166.617
+US|America/New_York|Eastern (most areas)|40.714|-74.006
+US|America/Detroit|Eastern - MI (most areas)|42.331|-83.046
+US|America/Kentucky/Louisville|Eastern - KY (Louisville area)|38.254|-85.759
+US|America/Kentucky/Monticello|Eastern - KY (Wayne)|36.830|-84.849
+US|America/Indiana/Indianapolis|Eastern - IN (most areas)|39.768|-86.158
+US|America/Indiana/Vincennes|Eastern - IN (Da, Du, K, Mn)|38.677|-87.529
+US|America/Indiana/Winamac|Eastern - IN (Pulaski)|41.051|-86.603
+US|America/Indiana/Marengo|Eastern - IN (Crawford)|38.376|-86.345
+US|America/Indiana/Petersburg|Eastern - IN (Pike)|38.492|-87.279
+US|America/Indiana/Vevay|Eastern - IN (Switzerland)|38.748|-85.067
+US|America/Chicago|Central (most areas)|41.850|-87.650
+US|America/Indiana/Tell_City|Central - IN (Perry)|37.953|-86.761
+US|America/Indiana/Knox|Central - IN (Starke)|41.296|-86.625
+US|America/Menominee|Central - MI (Wisconsin border)|45.108|-87.614
+US|America/North_Dakota/Center|Central - ND (Oliver)|47.116|-101.299
+US|America/North_Dakota/New_Salem|Central - ND (Morton rural)|46.845|-101.411
+US|America/North_Dakota/Beulah|Central - ND (Mercer)|47.264|-101.778
+US|America/Denver|Mountain (most areas)|39.739|-104.984
+US|America/Boise|Mountain - ID (south), OR (east)|43.614|-116.203
+US|America/Phoenix|MST - AZ (except Navajo)|33.448|-112.073
+US|America/Los_Angeles|Pacific|34.052|-118.243
+US|America/Anchorage|Alaska (most areas)|61.218|-149.900
+US|America/Juneau|Alaska - Juneau area|58.302|-134.420
+US|America/Sitka|Alaska - Sitka area|57.176|-135.302
+US|America/Metlakatla|Alaska - Annette Island|55.127|-131.576
+US|America/Yakutat|Alaska - Yakutat|59.547|-139.727
+US|America/Nome|Alaska (west)|64.501|-165.406
+US|America/Adak|Alaska - western Aleutians|51.880|-176.658
+US|Pacific/Honolulu|Hawaii|21.307|-157.858
+UY|America/Montevideo||-34.909|-56.213
+UZ|Asia/Samarkand|Uzbekistan (west)|39.667|66.800
+UZ|Asia/Tashkent|Uzbekistan (east)|41.333|69.300
+VA|Europe/Vatican||41.902|12.453
+VC|America/St_Vincent||13.150|-61.233
+VE|America/Caracas||10.500|-66.933
+VG|America/Tortola||18.450|-64.617
+VI|America/St_Thomas||18.350|-64.933
+VN|Asia/Ho_Chi_Minh||10.750|106.667
+VU|Pacific/Efate||-17.667|168.417
+WF|Pacific/Wallis||-13.300|-176.167
+WS|Pacific/Apia||-13.833|-171.733
+YE|Asia/Aden||12.750|45.200
+YT|Indian/Mayotte||-12.783|45.233
+ZA|Africa/Johannesburg||-26.250|28.000
+ZM|Africa/Lusaka||-15.417|28.283
+ZW|Africa/Harare||-17.833|31.050
 `;
 
   const LEGACY = { la: "losangeles", mexico: "mexicocity", delhi: "newdelhi", panama: "panamacity" };
@@ -1094,13 +1102,13 @@ ZW|Africa/Harare
   }
 
   const ZONES = new Map();
-  ZONE_DATA.trim().split("\n").forEach(l => { const [cc, tz, note] = l.split("|"); ZONES.set(tz, { cc, note: note || "" }); });
+  ZONE_DATA.trim().split("\n").forEach(l => { const [cc, tz, note, lat, lon] = l.split("|"); ZONES.set(tz, { cc, note: note || "", lat: +lat, lon: +lon }); });
 
   const CITIES = [];
   CITY_DATA.trim().split("\n").forEach(l => {
-    const [cc, tz0, city, en] = l.split("|");
+    const [cc, tz0, city, en, lat, lon] = l.split("|");
     const tz = useTz(tz0);
-    if (tz) CITIES.push(mk({ id: slug(en.split("/")[0]), cc, tz, city, en }));
+    if (tz) CITIES.push(mk({ id: slug(en.split("/")[0]), cc, tz, city, en, lat: +lat, lon: +lon }));
   });
 
   const DEFAULTS = ["taipei","losangeles","lima","lapaz","mexicocity","saopaulo","buenosaires","santiago"];
@@ -1118,7 +1126,7 @@ ZW|Africa/Harare
     const z = ZONES.get(tz);
     const place = tz.split("/").pop().replace(/_/g, " ");
     const c = z
-      ? mk({ id, cc: z.cc, tz: real, city: place + (z.note ? "・" + z.note : ""), en: tz, note: z.note })
+      ? mk({ id, cc: z.cc, tz: real, city: place + (z.note ? "・" + z.note : ""), en: tz, note: z.note, lat: z.lat, lon: z.lon })
       : mk({ id, cc: "", tz: real, city: tz.replace(/_/g, " "), en: tz, place });
     byId.set(id, c);
     return c;
@@ -1190,6 +1198,100 @@ ZW|Africa/Harare
     return day + "・" + (diff > 0 ? "快 " : "慢 ") + txt;
   }
 
+  // ---- sun & moon (SunCalc) ----
+  const RAD = Math.PI / 180, DAY = 864e5;
+  const Sun = () => window.SunCalc || null;
+  const hmFmt = new Map();
+  function hm(tz, d) {
+    if (!hmFmt.has(tz)) hmFmt.set(tz, new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }));
+    return hmFmt.get(tz).format(d).replace(/^24/, "00");
+  }
+  const valid = d => d instanceof Date && !isNaN(d);
+  const nextAfter = (list, now) => list.filter(d => valid(d) && d > now).sort((a, b) => a - b)[0] || null;
+
+  function astro(c, now) {
+    const S = Sun();
+    if (!S || !isFinite(c.lat) || !isFinite(c.lon)) return null;
+    const t = now.getTime();
+    const rises = [], sets = [];
+    for (const k of [-1, 0, 1, 2]) {
+      const x = S.getTimes(new Date(t + k * DAY), c.lat, c.lon);
+      rises.push(x.sunrise); sets.push(x.sunset);
+    }
+    const sunUp = S.getPosition(now, c.lat, c.lon).altitude > -0.833 * RAD;
+    const mRise = [], mSet = [];
+    const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    for (const k of [-1, 0, 1, 2]) {
+      const x = S.getMoonTimes(new Date(base + k * DAY), c.lat, c.lon, true);
+      if (x.rise) mRise.push(x.rise);
+      if (x.set) mSet.push(x.set);
+    }
+    const moonUp = S.getMoonPosition(now, c.lat, c.lon).altitude > 0.133 * RAD;
+    const dayKey = d => { const x = info(c.tz, d); return x.y * 1e4 + x.mo * 100 + x.d; };
+    const today = dayKey(now);
+    const onToday = list => list.find(d => valid(d) && dayKey(d) === today) || null;
+    return {
+      sun: { up: sunUp, next: nextAfter(sunUp ? sets : rises, now), rise: onToday(rises), set: onToday(sets) },
+      moon: { up: moonUp, next: nextAfter(moonUp ? mSet : mRise, now) },
+      ill: S.getMoonIllumination(now),
+      south: c.lat < 0,
+    };
+  }
+
+  function phaseName(p) {
+    if (p < 0.03 || p > 0.97) return "新月";
+    if (p < 0.22) return "眉月";
+    if (p < 0.28) return "上弦月";
+    if (p < 0.47) return "盈凸月";
+    if (p < 0.53) return "滿月";
+    if (p < 0.72) return "虧凸月";
+    if (p < 0.78) return "下弦月";
+    return "殘月";
+  }
+
+  function sunSvg(up) {
+    const ray = (a, r1, r2, cy) => { const x = Math.cos(a * RAD), y = Math.sin(a * RAD); return `M${(8 + x * r1).toFixed(2)} ${(cy + y * r1).toFixed(2)}L${(8 + x * r2).toFixed(2)} ${(cy + y * r2).toFixed(2)}`; };
+    if (up) {
+      const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 5, 6.8, 8)).join("");
+      return `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.1" fill="var(--accent)"/><path d="${rays}" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
+    }
+    const rays = [180, 225, 270, 315, 360].map(a => ray(a, 5, 6.6, 11)).join("");
+    return `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.7 11a3.3 3.3 0 0 1 6.6 0" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="${rays}M1 13.6h14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
+  }
+
+  // Lit part of the moon drawn from its illuminated fraction; mirrored south of the equator.
+  function moonSvg(ill, south) {
+    const f = ill.fraction, waxing = ill.phase < 0.5, r = 6, c = 8;
+    let lit = "";
+    if (f > 0.985) lit = `<circle cx="8" cy="8" r="${r}" fill="currentColor"/>`;
+    else if (f > 0.015) {
+      const rx = (r * Math.abs(1 - 2 * f)).toFixed(2);
+      const s1 = waxing ? 1 : 0, s2 = f < 0.5 ? (waxing ? 0 : 1) : (waxing ? 1 : 0);
+      lit = `<path d="M${c} ${c - r}A${r} ${r} 0 0 ${s1} ${c} ${c + r}A${rx} ${r} 0 0 ${s2} ${c} ${c - r}Z" fill="currentColor"/>`;
+    }
+    const flip = south ? ' transform="matrix(-1 0 0 1 16 0)"' : "";
+    return `<svg viewBox="0 0 16 16" aria-hidden="true"><g${flip}><circle cx="8" cy="8" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-width="1"/>${lit}</g></svg>`;
+  }
+
+  function paintAstro(r) {
+    const a = r.ast, tz = r.c.tz;
+    r.astro.hidden = !a;
+    r.dn.hidden = !!a;
+    if (!a) return;
+    const sunText = a.sun.next ? `${a.sun.up ? "日落" : "日出"} <b>${hm(tz, a.sun.next)}</b>` : (a.sun.up ? "永晝" : "永夜");
+    const moonText = a.moon.next ? `${a.moon.up ? "月落" : "月出"} <b>${hm(tz, a.moon.next)}</b>` : (a.moon.up ? "整日可見" : "整日不升");
+    const sunHtml = sunSvg(a.sun.up) + `<span>${sunText}</span>`;
+    const moonHtml = moonSvg(a.ill, a.south) + `<span>${moonText}</span>`;
+    if (r.sunEl._h !== sunHtml) { r.sunEl.innerHTML = sunHtml; r.sunEl._h = sunHtml; }
+    if (r.moonEl._h !== moonHtml) { r.moonEl.innerHTML = moonHtml; r.moonEl._h = moonHtml; }
+    r.sunEl.classList.toggle("down", !a.sun.up);
+    r.moonEl.classList.toggle("down", !a.moon.up);
+    const sunTip = (a.sun.rise && a.sun.set) ? `今天日出 ${hm(tz, a.sun.rise)}・日落 ${hm(tz, a.sun.set)}` : (a.sun.up ? "永晝" : "永夜");
+    const moonTip = `${phaseName(a.ill.phase)}・照亮 ${Math.round(a.ill.fraction * 100)}%・目前${a.moon.up ? "在地平線上" : "在地平線下"}`;
+    r.sunEl.title = sunTip; r.sunEl.setAttribute("aria-label", (a.sun.up ? "太陽在天空，" : "太陽已下山，") + r.sunEl.textContent);
+    r.moonEl.title = moonTip; r.moonEl.setAttribute("aria-label", moonTip + "，" + r.moonEl.textContent);
+  }
+
   // ---- flip digit ----
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   function makeFlip() {
@@ -1231,7 +1333,7 @@ ZW|Africa/Harare
       <button class="grip" type="button"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>
       <button class="remove" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
       <div class="clock" role="timer" aria-live="off"></div>
-      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span></div>`;
+      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span><span class="astro" hidden><span class="ev sun"></span><span class="ev moon"></span></span></div>`;
     card.querySelector(".country").textContent = c.country;
     card.querySelector(".city").textContent = c.city === c.country ? c.tz.replace(/_/g, " ") : c.city;
     const rm = card.querySelector(".remove");
@@ -1262,6 +1364,10 @@ ZW|Africa/Harare
       ymd: card.querySelector(".ymd"),
       dn: card.querySelector(".dn"),
       dnText: card.querySelector(".dn > span"),
+      astro: card.querySelector(".astro"),
+      sunEl: card.querySelector(".ev.sun"),
+      moonEl: card.querySelector(".ev.moon"),
+      astroMin: -1, ast: null,
       c,
     };
   }
@@ -1307,7 +1413,9 @@ ZW|Africa/Harare
       r.offset.textContent = gmt(i.offset);
       r.rel.textContent = relText(i.offset, li.offset, i, li);
       r.ymd.textContent = `${i.y}年${i.mo}月${i.d}日 ${i.wd}`;
-      const day = i.h >= 6 && i.h < 18;
+      const minute = Math.floor(now.getTime() / 6e4);
+      if (r.astroMin !== minute) { r.astroMin = minute; r.ast = astro(r.c, now); paintAstro(r); }
+      const day = r.ast ? r.ast.sun.up : (i.h >= 6 && i.h < 18);
       r.dn.classList.toggle("night", !day);
       r.card.classList.toggle("is-day", day);
       r.card.classList.toggle("is-night", !day);
