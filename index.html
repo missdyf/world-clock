@@ -109,7 +109,12 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   opacity: .55; transition: opacity .15s, background .15s, color .15s;
 }
 .remove svg { width: 14px; height: 14px; }
-.card.is-local { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+/* Local card: solid accent frame plus a soft halo, so it reads as "here" in both day and night colours. */
+.card.is-local {
+  border: 2px solid var(--accent);
+  padding: 17px 17px 19px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), var(--shadow);
+}
 .card.is-local .remove, .card.is-local .grip { display: none; }
 .grip {
   position: absolute; top: 12px; right: 42px;
@@ -127,8 +132,7 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
 .is-local .country::after {
   content: "本地"; display: inline-block; vertical-align: 2px; margin-left: 8px;
   font-size: .66rem; font-weight: 500; letter-spacing: .12em; line-height: 1;
-  padding: 4px 7px; border-radius: 999px; color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  padding: 4px 8px; border-radius: 999px; color: #fff; background: var(--accent); font-weight: 700;
 }
 .card:hover .remove, .remove:focus-visible { opacity: 1; }
 .remove:hover { background: var(--chip, var(--bg)); color: var(--ink); }
