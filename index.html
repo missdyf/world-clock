@@ -92,6 +92,17 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
   color-scheme: dark;
 }
+/* Sunrise/sunset/moonrise/moonset: the card becomes a dark-to-light sky. The top stays dark and the
+   bottom stays light so both text rows remain readable; --tw-hint (set from the event's progress)
+   moves the midpoint, so the light grows after a rise and shrinks before a set. */
+.card.is-twilight {
+  --tw-dark: #15171b; --tw-light: #f8f7f3;
+  --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
+  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 26%, var(--tw-hint, 50%), var(--tw-light) 78%, var(--tw-light) 100%);
+}
+.card.is-twilight .card-head { --ink: #efeee8; --muted: #a9aeb6; --chip: rgba(255,255,255,.08); color: var(--ink); }
+.card.is-twilight .date { --ink: #1c1f24; --muted: #5f6670; --surface: var(--tw-light); --moon: #c8b98c; color: var(--ink); border-top-color: rgba(28,31,36,.14); }
+.card.is-twilight .flip { box-shadow: 0 .04em .12em rgba(0,0,0,.3); }
 .card.is-day .flip { box-shadow: 0 0 0 1px #e4e1d9, 0 .04em .1em rgba(30,25,15,.12); }
 .card { color: var(--ink); transition: background-color .6s ease, border-color .6s ease; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-right: 68px; }
@@ -1285,8 +1296,29 @@ ZW|Africa/Harare||-17.833|31.050
   const moonIcon = a => svg(moonShape(8, 8, 6, a.ill, a.south));
   const horizonMoon = (a, rising) => horizon(moonShape(8, rising ? H - 1.9 : H + 0.4, 4, a.ill, a.south), rising);
 
-  function paintAstro(r) {
+  // Light level 0..1 across the hour before and after a rise (growing) or a set (fading).
+  function paintSky(r, a, now) {
+    let light = null;
+    const prog = d => Math.min(1, Math.max(0, (now - d + HOUR) / (2 * HOUR)));
+    if (a) {
+      if (a.sun.rise) light = prog(a.sun.rise);
+      else if (a.sun.set) light = 1 - prog(a.sun.set);
+      else if (!a.sun.up && a.moon.rise) light = prog(a.moon.rise);
+      else if (!a.sun.up && a.moon.set) light = 1 - prog(a.moon.set);
+    }
+    r.card.classList.toggle("is-twilight", light !== null);
+    const st = r.card.style;
+    if (light === null) { ["--tw-hint", "--tw-dark", "--tw-light"].forEach(k => st.removeProperty(k)); return; }
+    // Brighter sky as the light grows: the midpoint rises and both ends lighten.
+    const mix = (c0, c1) => "#" + [0, 2, 4].map(i => Math.round(parseInt(c0.substr(i + 1, 2), 16) * (1 - light) + parseInt(c1.substr(i + 1, 2), 16) * light).toString(16).padStart(2, "0")).join("");
+    st.setProperty("--tw-hint", (74 - 44 * light).toFixed(1) + "%");
+    st.setProperty("--tw-dark", mix("#0d0e11", "#323843"));
+    st.setProperty("--tw-light", mix("#a4a7ac", "#f8f7f3"));
+  }
+
+  function paintAstro(r, now) {
     const a = r.ast, tz = r.c.tz;
+    paintSky(r, a, now);
     r.astro.hidden = !a;
     r.dn.hidden = !!a;
     if (!a) return;
@@ -1425,7 +1457,7 @@ ZW|Africa/Harare||-17.833|31.050
       r.rel.textContent = relText(i.offset, li.offset, i, li);
       r.ymd.textContent = `${i.y}年${i.mo}月${i.d}日 ${i.wd}`;
       const minute = Math.floor(now.getTime() / 6e4);
-      if (r.astroMin !== minute) { r.astroMin = minute; r.ast = astro(r.c, now); paintAstro(r); }
+      if (r.astroMin !== minute) { r.astroMin = minute; r.ast = astro(r.c, now); paintAstro(r, now); }
       const day = r.ast ? r.ast.sun.up : (i.h >= 6 && i.h < 18);
       r.dn.classList.toggle("night", !day);
       r.card.classList.toggle("is-day", day);
