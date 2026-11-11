@@ -81,6 +81,19 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   padding: 18px 18px 20px; box-shadow: var(--shadow);
   display: flex; flex-direction: column; gap: 14px; min-width: 0;
 }
+/* Each card follows its own city's daylight: light card by day (06:00-17:59), dark card at night. */
+.card.is-day {
+  --surface: #f8f7f3; --ink: #1c1f24; --muted: #69707a; --line: #e2dfd7; --chip: #eeece6;
+  --tile: #ffffff; --tile-hi: #f4f3ef; --tile-ink: #1d2024; --hinge: #d9d5cc;
+  color-scheme: light;
+}
+.card.is-night {
+  --surface: #15171b; --ink: #e9e8e3; --muted: #8f959e; --line: #2b2e34; --chip: #22252b;
+  --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
+  color-scheme: dark;
+}
+.card.is-day .flip { box-shadow: 0 0 0 1px #e4e1d9, 0 .04em .1em rgba(30,25,15,.12); }
+.card { color: var(--ink); transition: background-color .6s ease, border-color .6s ease; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-right: 68px; }
 .place { min-width: 0; }
 .country { font-size: 1.15rem; font-weight: 700; letter-spacing: .06em; line-height: 1.3; overflow-wrap: anywhere; }
@@ -106,7 +119,7 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
 }
 .grip svg { width: 14px; height: 14px; }
 .card:hover .grip, .grip:focus-visible { opacity: 1; }
-.grip:hover { background: var(--bg); color: var(--ink); }
+.grip:hover { background: var(--chip, var(--bg)); color: var(--ink); }
 .card.dragging { z-index: 2; outline: 2px dashed var(--accent); outline-offset: 3px; box-shadow: 0 24px 50px -20px rgba(0,0,0,.45); }
 .card.dragging .grip { opacity: 1; color: var(--accent); cursor: grabbing; }
 body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
@@ -118,7 +131,7 @@ body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbin
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .card:hover .remove, .remove:focus-visible { opacity: 1; }
-.remove:hover { background: var(--bg); color: var(--ink); }
+.remove:hover { background: var(--chip, var(--bg)); color: var(--ink); }
 
 /* flip clock */
 .clock {
@@ -1296,6 +1309,8 @@ ZW|Africa/Harare
       r.ymd.textContent = `${i.y}年${i.mo}月${i.d}日 ${i.wd}`;
       const day = i.h >= 6 && i.h < 18;
       r.dn.classList.toggle("night", !day);
+      r.card.classList.toggle("is-day", day);
+      r.card.classList.toggle("is-night", !day);
       r.dnText.textContent = day ? "白天" : "夜晚";
     }
   }
