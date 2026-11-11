@@ -1053,7 +1053,7 @@ ZW|Africa/Harare
   const LEGACY = { la: "losangeles", mexico: "mexicocity", delhi: "newdelhi", panama: "panamacity" };
   const canon = id => LEGACY[id] || id;
   const COUNTRY_ZH = { TW: "台灣", HK: "香港", MO: "澳門", KR: "韓國", KP: "北韓", PS: "巴勒斯坦", AE: "阿聯", PE: "祕魯", CD: "剛果民主共和國", CG: "剛果共和國" };
-  const COUNTRY_ALIAS = { KR: "南韓 大韓民國", AE: "阿拉伯聯合大公國 阿聯酋 UAE", GB: "UK 英格蘭 England 蘇格蘭 Scotland", US: "USA 美利堅", HK: "中國香港", MO: "中國澳門", CD: "剛果 金夏沙", CG: "剛果 布拉薩", NL: "Holland", CY: "塞浦路斯" };
+  const COUNTRY_ALIAS = { KR: "南韓 大韓民國", AE: "阿拉伯聯合大公國 阿聯酋 UAE", GB: "UK 英格蘭 England 蘇格蘭 Scotland", US: "USA 美利堅", HK: "中國香港 Hong Kong SAR China", MO: "中國澳門 Macao SAR China", CD: "剛果 金夏沙", CG: "剛果 布拉薩", NL: "Holland", CY: "塞浦路斯", PS: "巴勒斯坦自治區 Palestine Palestinian Territories" };
   let dnZh = null, dnEn = null;
   try { dnZh = new Intl.DisplayNames(["zh-TW"], { type: "region" }); dnEn = new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) {}
   const countryZh = cc => COUNTRY_ZH[cc] || (dnZh && dnZh.of(cc)) || cc;
@@ -1076,7 +1076,7 @@ ZW|Africa/Harare
     o.country = o.cc ? countryZh(o.cc) : o.place;
     o.cityKey = norm(o.city + "|" + o.en);
     o.countryKey = norm(o.country);
-    o.key = norm([o.city, o.en, o.country, o.cc ? countryEn(o.cc) : "", COUNTRY_ALIAS[o.cc] || "", o.tz, o.note || ""].join("|"));
+    o.key = norm([o.city, o.en, o.country, o.cc ? countryEn(o.cc) : "", o.cc && dnZh ? dnZh.of(o.cc) : "", COUNTRY_ALIAS[o.cc] || "", o.tz, o.note || ""].join("|"));
     return o;
   }
 
@@ -1401,6 +1401,7 @@ ZW|Africa/Harare
     const added = selected.includes(c.id) || c.id === localId;
     const b = document.createElement("button");
     b.type = "button"; b.className = "opt"; b.disabled = added;
+    b.dataset.tz = c.tz;
     b.innerHTML = '<span class="n"></span><span class="t"></span>';
     const n = b.querySelector(".n");
     n.textContent = c.country;
