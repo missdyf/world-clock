@@ -15,3 +15,15 @@
 
 單一檔案 `index.html`，不需要建置，直接用 GitHub Pages 發布即可。
 
+
+## 晴天旅遊世界時鐘（Sunday Tour）
+
+`sundaytour-clock.html` 是晴天旅遊專用的版本，預設只顯示本地時間。
+
+- 右上角 ＋ 可搜尋新增城市
+- 圖片按鈕可一鍵匯入地點：上傳行程截圖（可多張、拖曳或直接貼上截圖），或貼上行程文字，依出現順序加入時鐘
+- 圖片文字辨識用 [Tesseract.js](https://github.com/naptha/tesseract.js) 在瀏覽器內完成，圖片不會上傳；中英文字庫放在 `tessdata/`（內容是 gzip 的 traineddata，副檔名用 `.wasm`）
+- 同一國家裡，未來一年 UTC 時差與夏令時間規則完全相同的地點合併成一個時鐘；跨多個時區的國家依各地點歸類，例如智利分成聖地牙哥、蓬塔阿雷納斯（百內國家公園）、復活節島
+- 只認得內建資料中的地名：約 350 個城市、tzdata 時區名稱，以及常見旅遊景點與不同譯名
+
+`sundaytour-clock.html` 要和 `tessdata/` 資料夾放在同一層。

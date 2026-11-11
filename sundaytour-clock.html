@@ -1,0 +1,2396 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>晴天旅遊世界時鐘</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: quiet header with a single round "+" at top-right; a wrapping grid of clock cards, each holding a row of split-flap tiles. */
+:root {
+  --bg: #e7e9ec;
+  --surface: #f5f6f7;
+  --ink: #1c1f24;
+  --muted: #6b717b;
+  --line: #d3d7dc;
+  --tile: #1d2024;
+  --tile-hi: #26292e;
+  --tile-ink: #f1f0ea;
+  --hinge: #0d0e10;
+  --accent: #c9762e;
+  --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 10px 30px -18px rgba(20,25,35,.35);
+  --font-digit: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif-condensed, sans-serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101113; --surface: #17191c; --ink: #e9e8e3; --muted: #8d939c; --line: #2a2d32;
+    --tile: #24272c; --tile-hi: #2c3035; --tile-ink: #efeee8; --hinge: #0b0c0d; --accent: #e0914a;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -16px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101113; --surface: #17191c; --ink: #e9e8e3; --muted: #8d939c; --line: #2a2d32;
+  --tile: #24272c; --tile-hi: #2c3035; --tile-ink: #efeee8; --hinge: #0b0c0d; --accent: #e0914a;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 30px -16px rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+  min-height: 100%;
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-block: 28px 24px;
+}
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; text-wrap: balance; }
+.local { color: var(--muted); font-size: .82rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+
+.actions { display: flex; align-items: center; gap: 10px; flex: none; }
+/* Two-option switch: the current language is the filled half. */
+.lang-btn {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 48px; padding: 4px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: inherit; font-family: var(--font-digit); font-size: 1.05rem; font-weight: 600; letter-spacing: .08em;
+  cursor: pointer; box-shadow: var(--shadow); transition: border-color .2s ease;
+}
+.lang-btn:hover { border-color: var(--accent); }
+.lang-btn span { display: grid; place-items: center; height: 38px; min-width: 40px; padding: 0 8px; border-radius: 999px; color: var(--muted); transition: background .2s ease, color .2s ease; }
+.lang-btn span.on { background: var(--ink); color: var(--surface); }
+.lang-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[lang="en"] .is-local .country::after { content: "LOCAL"; letter-spacing: .1em; }
+.add-btn {
+  flex: none; width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform .2s ease, border-color .2s ease;
+}
+.add-btn:hover { transform: rotate(90deg); border-color: var(--accent); }
+.add-btn:focus-visible, button:focus-visible, input:focus-visible, .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.add-btn svg { width: 20px; height: 20px; }
+
+.grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+}
+
+.card {
+  position: relative; container-type: inline-size;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 18px 20px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 14px; min-width: 0;
+}
+/* Each card follows its own city's daylight: light card while the sun is up, dark card after sunset. */
+.card.is-day {
+  --surface: #f8f7f3; --ink: #1c1f24; --muted: #69707a; --line: #e2dfd7; --chip: #eeece6; --moon: #c8b98c;
+  --tile: #ffffff; --tile-hi: #f4f3ef; --tile-ink: #1d2024; --hinge: #d9d5cc;
+  color-scheme: light;
+}
+.card.is-night {
+  --surface: #15171b; --ink: #e9e8e3; --muted: #8f959e; --line: #2b2e34; --chip: #22252b; --moon: #ecebe3;
+  --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
+  color-scheme: dark;
+}
+/* Sunrise/sunset/moonrise/moonset: a blue-grey sky over the top ~70% fading to cream at the bottom ~30%. */
+.card.is-twilight {
+  --tw-dark: #B4C4D6; --tw-light: #F8F7F3;
+  --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
+  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 50%, var(--tw-light) 82%, var(--tw-light) 100%);
+}
+.card.is-twilight .card-head { --ink: #1c1f24; --muted: #3c424b; --chip: rgba(255,255,255,.35); color: var(--ink); }
+.card.is-twilight .date { --ink: #1c1f24; --muted: #5f6670; --surface: var(--tw-light); --moon: #c8b98c; color: var(--ink); border-top-color: rgba(28,31,36,.14); }
+.card.is-twilight .flip { box-shadow: 0 .04em .12em rgba(0,0,0,.3); }
+.card.is-day .flip { box-shadow: 0 0 0 1px #e4e1d9, 0 .04em .1em rgba(30,25,15,.12); }
+.card { color: var(--ink); transition: background-color .6s ease, border-color .6s ease; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-right: 68px; }
+/* Names stay on one line (full name in the tooltip) so every card in a row lines up. */
+.place { min-width: 0; flex: 1; }
+.country { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: .06em; line-height: 1.3; }
+.country .name, .city { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.city { color: var(--muted); font-size: .8rem; letter-spacing: .05em; }
+.meta { text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+.offset { font-family: var(--font-digit); font-weight: 600; font-size: .95rem; letter-spacing: .08em; color: var(--ink); }
+.rel { color: var(--muted); font-size: .74rem; letter-spacing: .04em; white-space: nowrap; }
+
+.remove {
+  position: absolute; top: 12px; right: 10px;
+  width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--muted); cursor: pointer; display: grid; place-items: center;
+  opacity: .55; transition: opacity .15s, background .15s, color .15s;
+}
+.remove svg { width: 14px; height: 14px; }
+/* Local card: solid accent frame plus a soft halo, so it reads as "here" in both day and night colours. */
+.card.is-local {
+  border: 2px solid var(--accent);
+  padding: 17px 17px 19px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), var(--shadow);
+}
+.card.is-local .remove, .card.is-local .grip { display: none; }
+.grip {
+  position: absolute; top: 12px; right: 42px;
+  width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--muted); cursor: grab; display: grid; place-items: center;
+  opacity: .55; touch-action: none; transition: opacity .15s, background .15s, color .15s;
+}
+.grip svg { width: 14px; height: 14px; }
+.card:hover .grip, .grip:focus-visible { opacity: 1; }
+.grip:hover { background: var(--chip, var(--bg)); color: var(--ink); }
+.card.dragging { z-index: 2; outline: 2px dashed var(--accent); outline-offset: 3px; box-shadow: 0 24px 50px -20px rgba(0,0,0,.45); }
+.card.dragging .grip { opacity: 1; color: var(--accent); cursor: grabbing; }
+body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.card.is-local .card-head { padding-right: 0; }
+.is-local .country::after {
+  content: "本地"; flex: none;
+  font-size: .66rem; font-weight: 500; letter-spacing: .12em; line-height: 1;
+  padding: 4px 8px; border-radius: 999px; color: #fff; background: var(--accent); font-weight: 700;
+}
+.card:hover .remove, .remove:focus-visible { opacity: 1; }
+.remove:hover { background: var(--chip, var(--bg)); color: var(--ink); }
+
+/* flip clock */
+.clock {
+  --d: min(16.5cqi, 4.2rem);
+  font-family: var(--font-digit); font-weight: 600; font-size: var(--d);
+  display: flex; align-items: center; justify-content: center; gap: .07em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.pair { display: flex; gap: .05em; }
+.colon {
+  width: .3em; height: 1.36em; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .3em;
+}
+.colon::before, .colon::after { content: ""; width: .1em; height: .1em; border-radius: 50%; background: var(--accent); }
+.pair.sec { font-size: .72em; align-self: flex-end; }
+
+.flip {
+  position: relative; width: .74em; height: 1.36em;
+  color: var(--tile-ink); border-radius: .08em;
+  box-shadow: 0 .04em .08em rgba(0,0,0,.25);
+}
+.half, .leaf {
+  position: absolute; left: 0; right: 0; height: 50%; overflow: hidden;
+  background: var(--tile);
+}
+.half span, .leaf span {
+  position: absolute; left: 0; right: 0; height: 1.36em;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.top, .leaf-top { top: 0; border-radius: .08em .08em 0 0; background: linear-gradient(var(--tile-hi), var(--tile)); }
+.top span, .leaf-top span { top: 0; }
+.bottom, .leaf-bottom { bottom: 0; border-radius: 0 0 .08em .08em; }
+.bottom span, .leaf-bottom span { bottom: 0; }
+.flip::after { /* hinge */
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: .025em; min-height: 1px;
+  background: var(--hinge); transform: translateY(-50%); z-index: 4;
+}
+/* The flip folds each half flat (scaleY) instead of a 3D rotateX: iOS Safari drops the digits of
+   3D-rotated, clipped layers mid-animation, while a 2D fold renders the same everywhere. */
+.leaf { visibility: hidden; z-index: 3; will-change: transform; }
+.leaf-top { transform-origin: 50% 100%; }
+.leaf-bottom { transform-origin: 50% 0; }
+.flip.go .leaf { visibility: visible; }
+.flip.go .leaf-top { animation: flipTop .3s ease-in forwards; }
+.flip.go .leaf-bottom { transform: scaleY(0); animation: flipBottom .3s ease-out .3s forwards; }
+@keyframes flipTop { from { transform: scaleY(1); } to { transform: scaleY(0); } }
+@keyframes flipBottom { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+.date {
+  margin-top: auto;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  border-top: 1px solid var(--line); padding-top: 12px;
+  font-size: .86rem; letter-spacing: .05em; font-variant-numeric: tabular-nums;
+}
+.date .dn { color: var(--muted); font-size: .76rem; display: inline-flex; align-items: center; gap: 6px; }
+.astro { display: inline-flex; gap: 8px; margin-left: auto; color: var(--muted); }
+.ev { display: inline-flex; color: var(--muted); }
+.ev svg { width: 22px; height: 22px; flex: none; overflow: visible; }
+.ev.dim svg { opacity: .45; }
+.dn i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.dn.night i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+
+.empty {
+  grid-column: 1 / -1; text-align: center; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 14px; padding: 48px 16px;
+}
+.empty button { margin-top: 12px; }
+
+/* picker */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(10,12,15,.42);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 6vh) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.sheet {
+  width: min(100%, 520px); max-height: min(78vh, 680px);
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sheet-head { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); }
+.sheet-title { display: flex; justify-content: space-between; align-items: center; }
+.sheet-title h2 { margin: 0; font-size: 1rem; letter-spacing: .1em; }
+.close {
+  width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center;
+}
+.close:hover { background: var(--bg); color: var(--ink); }
+.close svg { width: 16px; height: 16px; }
+#search {
+  width: 100%; font: inherit; font-size: 16px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+#search::placeholder { color: var(--muted); }
+.list { overflow-y: auto; padding: 6px; }
+.group-label { font-size: .72rem; letter-spacing: .14em; color: var(--muted); padding: 12px 10px 4px; }
+.opt {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.opt:hover:not(:disabled) { background: var(--bg); }
+.opt:disabled { cursor: default; opacity: .5; }
+.opt .n { min-width: 0; overflow-wrap: anywhere; }
+.opt .n small { color: var(--muted); margin-left: 8px; font-size: .78rem; }
+.opt .t { flex: none; font-family: var(--font-digit); font-size: 1.05rem; font-weight: 500; letter-spacing: .05em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.opt .t b { color: var(--ink); font-weight: 600; margin-left: 10px; }
+.none { color: var(--muted); padding: 24px 10px; text-align: center; }
+
+.btn {
+  font: inherit; font-size: .86rem; letter-spacing: .06em; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 8px 16px;
+}
+.btn:hover { border-color: var(--accent); }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  background: var(--ink); color: var(--bg); border-radius: 999px;
+  padding: 8px 8px 8px 18px; display: flex; align-items: center; gap: 12px;
+  font-size: .86rem; box-shadow: 0 12px 30px -10px rgba(0,0,0,.4);
+  max-width: calc(100% - 32px);
+}
+.toast button { font: inherit; border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; background: var(--accent); color: #fff; font-weight: 500; }
+
+/* how-to line under the title */
+.howto {
+  list-style: none; margin: -6px 0 22px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 10px 24px;
+  color: var(--muted); font-size: .82rem; line-height: 1.5; letter-spacing: .03em;
+}
+.howto li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; max-width: 100%; }
+.howto .ic {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; margin-top: -1px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  display: grid; place-items: center;
+}
+.howto .ic svg { width: 12px; height: 12px; }
+.howto b { color: var(--ink); font-weight: 500; margin-right: 6px; }
+
+/* import places */
+.add-btn.import-btn:hover { transform: translateY(-1px); }
+.imp-body { overflow-y: auto; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.drop {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 20px 16px; border: 1.5px dashed var(--line); border-radius: 12px; background: var(--bg); color: var(--ink);
+  font: inherit; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.drop:hover:not(:disabled), .drop.over { border-color: var(--accent); }
+.drop:disabled { cursor: default; opacity: .6; }
+.drop svg { width: 26px; height: 26px; color: var(--accent); }
+.drop b { font-size: .98rem; letter-spacing: .06em; }
+.drop span { color: var(--muted); font-size: .8rem; }
+.imp-note { margin: -4px 0 0; color: var(--muted); font-size: .76rem; text-align: center; }
+.imp-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.imp-thumbs:empty { display: none; }
+.imp-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.imp-status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .88rem; font-variant-numeric: tabular-nums; }
+.imp-status .spin { display: none; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+.imp-status.busy .spin { display: block; }
+.imp-status.err { color: var(--accent); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.imp-sum { font-size: .86rem; color: var(--ink); font-weight: 500; letter-spacing: .03em; }
+.imp-list { display: flex; flex-direction: column; gap: 2px; }
+.imp-list:empty { display: none; }
+.imp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 10px; }
+.imp-row:nth-child(odd) { background: var(--bg); }
+.imp-row .n { min-width: 0; overflow-wrap: anywhere; }
+.imp-row .n small { display: block; color: var(--muted); font-size: .78rem; }
+.tag { flex: none; font-size: .74rem; letter-spacing: .04em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+.tag.new { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.tag.have, .tag.merged { color: var(--ink); }
+.imp-text { display: flex; flex-direction: column; gap: 6px; }
+.imp-text label { font-size: .8rem; color: var(--muted); letter-spacing: .04em; }
+#impText {
+  width: 100%; min-height: 96px; resize: vertical; font: inherit; font-size: 15px; line-height: 1.5; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+#impText::placeholder { color: var(--muted); }
+#impText:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.imp-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--line); }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .imp-status .spin { animation: none; }
+  .flip.go .leaf { visibility: hidden; animation: none; }
+  .add-btn, .add-btn:hover { transition: none; transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1 id="appTitle">晴天旅遊世界時鐘</h1>
+      <div class="local" id="localInfo">本地時間</div>
+    </div>
+    <div class="actions">
+    <button class="lang-btn" id="langBtn" type="button" aria-label="Switch to English" title="Switch to English"><span data-l="zh" class="on">TW</span><span data-l="en">EN</span></button>
+    <button class="add-btn" id="addBtn" type="button" aria-label="新增城市" title="新增城市">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg>
+    </button>
+    <button class="add-btn import-btn" id="importBtn" type="button" aria-label="一鍵匯入地點" title="一鍵匯入地點">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><circle cx="7" cy="8.2" r="1.4"/><path d="M3 14.5l4.2-3.8 3 2.6 2.6-2.2 4.7 3.6"/></svg>
+    </button>
+    <input type="file" id="importFile" accept="image/*" multiple hidden>
+    </div>
+  </header>
+  <ul class="howto" id="howto">
+    <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg></span><span><b data-k="howAdd">新增城市</b><span data-k="howAddText">搜尋國家或城市名稱</span></span></li>
+    <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><path d="M3 14.5l4.2-3.8 3 2.6 2.6-2.2 4.7 3.6"/></svg></span><span><b data-k="howImport">一鍵匯入</b><span data-k="howImportText">上傳行程截圖或貼上文字，同一國家、同時區的地點會合併成一個時鐘</span></span></li>
+    <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.4"/><circle cx="10.5" cy="3.5" r="1.4"/><circle cx="5.5" cy="8" r="1.4"/><circle cx="10.5" cy="8" r="1.4"/><circle cx="5.5" cy="12.5" r="1.4"/><circle cx="10.5" cy="12.5" r="1.4"/></svg></span><span><b data-k="howArrange">調整順序</b><span data-k="howArrangeText">拖曳圖卡右上角的點點</span></span></li>
+    <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></span><span><b data-k="howRemove">移除城市</b><span data-k="howRemoveText">按圖卡右上角的 ×，誤刪可以按「復原」</span></span></li>
+  </ul>
+  <main class="grid" id="grid"></main>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <h2 id="pickerTitle">新增城市</h2>
+        <button class="close" id="closeBtn" type="button" aria-label="關閉">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        </button>
+      </div>
+      <input id="search" type="search" placeholder="搜尋國家或城市（例如：巴西、坎昆、Cyprus）" autocomplete="off">
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<div class="overlay" id="impOverlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <h2 id="impTitle">一鍵匯入地點</h2>
+        <button class="close" id="impClose" type="button" aria-label="關閉">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="imp-body">
+      <button class="drop" id="impDrop" type="button">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="15" height="12" rx="2"/><circle cx="7" cy="8.2" r="1.4"/><path d="M3 14.5l4.2-3.8 3 2.6 2.6-2.2 4.7 3.6"/></svg>
+        <b id="impDropTitle">選擇圖片</b>
+        <span id="impDropHint">可一次選多張，也可以把圖片拖到這裡，或直接貼上截圖</span>
+      </button>
+      <p class="imp-note" id="impPrivacy">圖片只在這台裝置上辨識，不會上傳。</p>
+      <div class="imp-thumbs" id="impThumbs"></div>
+      <div class="imp-status" id="impStatus" role="status" hidden><span class="spin" aria-hidden="true"></span><span id="impStatusText"></span></div>
+      <div class="imp-sum" id="impSum" hidden></div>
+      <div class="imp-list" id="impList"></div>
+      <div class="imp-text">
+        <label for="impText" id="impTextLabel">或貼上行程文字</label>
+        <textarea id="impText" rows="4" placeholder="例如：台北✈伊斯坦堡✈布魯塞爾【比利時】"></textarea>
+      </div>
+    </div>
+    <div class="imp-actions">
+      <button class="btn" id="impStop" type="button" hidden>停止</button>
+      <button class="btn primary" id="impFromText" type="button">從文字匯入</button>
+      <button class="btn" id="impDone" type="button">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="undoBtn">復原</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+<script>
+(() => {
+  // Cities: country|zone|name|English names|lat|lon. Zones and country codes checked against tzdata (zone.tab, 2026e);
+  // coordinates from GeoNames (cities with 1000+ people), or the zone.tab location where a place is not a single city.
+  const CITY_DATA = `
+TW|Asia/Taipei|台北|Taipei|25.048|121.532
+TW|Asia/Taipei|台中|Taichung|24.147|120.684
+TW|Asia/Taipei|高雄|Kaohsiung|22.616|120.313
+JP|Asia/Tokyo|東京|Tokyo|35.690|139.692
+JP|Asia/Tokyo|大阪|Osaka|34.694|135.502
+JP|Asia/Tokyo|京都|Kyoto|35.021|135.754
+JP|Asia/Tokyo|札幌|Sapporo|43.067|141.350
+JP|Asia/Tokyo|福岡|Fukuoka|33.600|130.417
+JP|Asia/Tokyo|那霸|Naha/Okinawa/沖繩|26.217|127.683
+KR|Asia/Seoul|首爾|Seoul|37.566|126.978
+KR|Asia/Seoul|釜山|Busan|35.102|129.030
+KP|Asia/Pyongyang|平壤|Pyongyang|39.034|125.754
+CN|Asia/Shanghai|北京|Beijing|39.907|116.397
+CN|Asia/Shanghai|上海|Shanghai|31.222|121.458
+CN|Asia/Shanghai|廣州|Guangzhou|23.117|113.250
+CN|Asia/Shanghai|深圳|Shenzhen|22.546|114.068
+CN|Asia/Shanghai|廈門|Xiamen|24.480|118.082
+CN|Asia/Shanghai|杭州|Hangzhou|30.294|120.161
+CN|Asia/Shanghai|成都|Chengdu|30.667|104.067
+CN|Asia/Shanghai|重慶|Chongqing|29.563|106.553
+CN|Asia/Shanghai|武漢|Wuhan|30.583|114.267
+CN|Asia/Shanghai|西安|Xi'an|34.258|108.929
+CN|Asia/Urumqi|烏魯木齊（新疆時間）|Urumqi/Xinjiang/新疆|43.801|87.600
+HK|Asia/Hong_Kong|香港|Hong Kong|22.278|114.175
+MO|Asia/Macau|澳門|Macau/Macao|22.201|113.546
+MN|Asia/Ulaanbaatar|烏蘭巴托|Ulaanbaatar|47.917|106.883
+MN|Asia/Hovd|科布多|Hovd|44.670|102.175
+SG|Asia/Singapore|新加坡|Singapore|1.290|103.850
+MY|Asia/Kuala_Lumpur|吉隆坡|Kuala Lumpur|3.141|101.687
+MY|Asia/Kuala_Lumpur|檳城|Penang/George Town|5.411|100.335
+MY|Asia/Kuching|古晉|Kuching/Sarawak/砂拉越|1.550|110.333
+MY|Asia/Kuching|亞庇|Kota Kinabalu/Sabah/沙巴|5.975|116.072
+TH|Asia/Bangkok|曼谷|Bangkok|13.754|100.501
+TH|Asia/Bangkok|清邁|Chiang Mai|18.790|98.985
+TH|Asia/Bangkok|普吉島|Phuket|7.891|98.398
+VN|Asia/Ho_Chi_Minh|河內|Hanoi|21.024|105.841
+VN|Asia/Ho_Chi_Minh|胡志明市|Ho Chi Minh City/Saigon/西貢|10.823|106.630
+VN|Asia/Ho_Chi_Minh|峴港|Da Nang|16.068|108.221
+KH|Asia/Phnom_Penh|金邊|Phnom Penh|11.562|104.916
+KH|Asia/Phnom_Penh|暹粒|Siem Reap/吳哥窟|13.362|103.861
+LA|Asia/Vientiane|永珍|Vientiane|17.967|102.600
+MM|Asia/Yangon|仰光|Yangon/Rangoon|16.805|96.156
+PH|Asia/Manila|馬尼拉|Manila|14.604|120.982
+PH|Asia/Manila|宿霧|Cebu|10.317|123.891
+ID|Asia/Jakarta|雅加達|Jakarta|-6.215|106.845
+ID|Asia/Jakarta|泗水|Surabaya|-7.249|112.751
+ID|Asia/Pontianak|坤甸|Pontianak|-0.032|109.325
+ID|Asia/Makassar|峇里島|Bali/Denpasar/巴里島|-8.650|115.217
+ID|Asia/Makassar|望加錫|Makassar|-5.149|119.432
+ID|Asia/Jayapura|查亞普拉|Jayapura/Papua|-2.534|140.718
+BN|Asia/Brunei|斯里巴加灣市|Bandar Seri Begawan|4.890|114.940
+TL|Asia/Dili|帝力|Dili|-8.559|125.574
+IN|Asia/Kolkata|新德里|New Delhi/Delhi|28.652|77.231
+IN|Asia/Kolkata|孟買|Mumbai/Bombay|19.073|72.883
+IN|Asia/Kolkata|班加羅爾|Bengaluru/Bangalore|12.972|77.594
+IN|Asia/Kolkata|加爾各答|Kolkata/Calcutta|22.563|88.363
+IN|Asia/Kolkata|清奈|Chennai|13.088|80.278
+IN|Asia/Kolkata|海德拉巴|Hyderabad|17.384|78.456
+PK|Asia/Karachi|喀拉蚩|Karachi|24.861|67.010
+PK|Asia/Karachi|拉合爾|Lahore|31.558|74.351
+PK|Asia/Karachi|伊斯蘭馬巴德|Islamabad|33.721|73.043
+BD|Asia/Dhaka|達卡|Dhaka|23.710|90.407
+NP|Asia/Kathmandu|加德滿都|Kathmandu|27.702|85.321
+BT|Asia/Thimphu|廷布|Thimphu|27.466|89.642
+LK|Asia/Colombo|可倫坡|Colombo|6.935|79.849
+MV|Indian/Maldives|馬列|Male/Maldives/馬爾地夫|4.175|73.509
+AF|Asia/Kabul|喀布爾|Kabul|34.528|69.172
+KZ|Asia/Almaty|阿拉木圖|Almaty|43.257|76.929
+KZ|Asia/Almaty|阿斯塔納|Astana|51.169|71.449
+UZ|Asia/Tashkent|塔什干|Tashkent|41.265|69.216
+UZ|Asia/Samarkand|撒馬爾罕|Samarkand|39.654|66.960
+KG|Asia/Bishkek|比斯凱克|Bishkek|42.870|74.590
+TJ|Asia/Dushanbe|杜尚別|Dushanbe|38.536|68.779
+TM|Asia/Ashgabat|阿什哈巴德|Ashgabat|37.950|58.383
+AE|Asia/Dubai|杜拜|Dubai|25.077|55.309
+AE|Asia/Dubai|阿布達比|Abu Dhabi|24.451|54.397
+QA|Asia/Qatar|杜哈|Doha|25.285|51.531
+BH|Asia/Bahrain|麥納瑪|Manama|26.228|50.586
+KW|Asia/Kuwait|科威特城|Kuwait City|29.370|47.978
+OM|Asia/Muscat|馬斯喀特|Muscat|23.584|58.408
+SA|Asia/Riyadh|利雅德|Riyadh|24.688|46.722
+SA|Asia/Riyadh|吉達|Jeddah|21.490|39.186
+SA|Asia/Riyadh|麥加|Mecca/Makkah|21.427|39.826
+YE|Asia/Aden|沙那|Sanaa/Aden/亞丁|15.355|44.207
+IR|Asia/Tehran|德黑蘭|Tehran|35.694|51.422
+IQ|Asia/Baghdad|巴格達|Baghdad|33.341|44.401
+IQ|Asia/Baghdad|艾比爾|Erbil|36.183|44.012
+JO|Asia/Amman|安曼|Amman|31.955|35.945
+SY|Asia/Damascus|大馬士革|Damascus|33.510|36.291
+LB|Asia/Beirut|貝魯特|Beirut|33.893|35.502
+IL|Asia/Jerusalem|耶路撒冷|Jerusalem|31.769|35.216
+IL|Asia/Jerusalem|特拉維夫|Tel Aviv|32.081|34.781
+PS|Asia/Gaza|加薩|Gaza|31.502|34.467
+PS|Asia/Hebron|拉馬拉|Ramallah/Hebron/希伯崙|31.529|35.094
+CY|Asia/Nicosia|尼古西亞|Nicosia|35.175|33.364
+CY|Asia/Nicosia|利馬索|Limassol|34.684|33.038
+CY|Asia/Nicosia|拉納卡|Larnaca|34.923|33.623
+CY|Asia/Famagusta|法馬古斯塔|Famagusta|35.125|33.941
+TR|Europe/Istanbul|伊斯坦堡|Istanbul|41.014|28.950
+TR|Europe/Istanbul|安卡拉|Ankara|39.920|32.854
+GE|Asia/Tbilisi|提比里斯|Tbilisi|41.694|44.834
+AM|Asia/Yerevan|葉里溫|Yerevan|40.181|44.514
+AZ|Asia/Baku|巴庫|Baku|40.378|49.892
+RU|Europe/Moscow|莫斯科|Moscow|55.752|37.616
+RU|Europe/Moscow|聖彼得堡|Saint Petersburg/St Petersburg|59.939|30.314
+RU|Europe/Kaliningrad|加里寧格勒|Kaliningrad|54.706|20.511
+RU|Europe/Samara|薩馬拉|Samara|53.200|50.150
+RU|Asia/Yekaterinburg|葉卡捷琳堡|Yekaterinburg|56.852|60.612
+RU|Asia/Omsk|鄂木斯克|Omsk|54.992|73.369
+RU|Asia/Novosibirsk|新西伯利亞|Novosibirsk|55.041|82.935
+RU|Asia/Krasnoyarsk|克拉斯諾亞爾斯克|Krasnoyarsk|56.018|92.867
+RU|Asia/Irkutsk|伊爾庫次克|Irkutsk|52.298|104.296
+RU|Asia/Yakutsk|雅庫次克|Yakutsk|62.034|129.733
+RU|Asia/Vladivostok|海參崴|Vladivostok|43.106|131.874
+RU|Asia/Magadan|馬加丹|Magadan|59.564|150.803
+RU|Asia/Kamchatka|堪察加|Kamchatka/Petropavlovsk-Kamchatsky|53.044|158.651
+GB|Europe/London|倫敦|London|51.509|-0.126
+GB|Europe/London|曼徹斯特|Manchester|53.481|-2.237
+GB|Europe/London|愛丁堡|Edinburgh|55.952|-3.196
+IE|Europe/Dublin|都柏林|Dublin|53.333|-6.249
+PT|Europe/Lisbon|里斯本|Lisbon|38.717|-9.133
+PT|Europe/Lisbon|波多|Porto|41.150|-8.611
+PT|Atlantic/Madeira|馬德拉|Madeira/Funchal|32.666|-16.925
+PT|Atlantic/Azores|亞速群島|Azores/Ponta Delgada|37.740|-25.669
+ES|Europe/Madrid|馬德里|Madrid|40.416|-3.703
+ES|Europe/Madrid|巴塞隆納|Barcelona|41.389|2.159
+ES|Europe/Madrid|塞維亞|Seville/Sevilla|37.383|-5.973
+ES|Atlantic/Canary|加那利群島|Canary Islands/Tenerife/Las Palmas|28.100|-15.400
+FR|Europe/Paris|巴黎|Paris|48.853|2.349
+FR|Europe/Paris|里昂|Lyon|45.748|4.847
+FR|Europe/Paris|尼斯|Nice|43.703|7.266
+BE|Europe/Brussels|布魯塞爾|Brussels|50.850|4.349
+NL|Europe/Amsterdam|阿姆斯特丹|Amsterdam|52.374|4.890
+LU|Europe/Luxembourg|盧森堡|Luxembourg|49.612|6.130
+DE|Europe/Berlin|柏林|Berlin|52.524|13.411
+DE|Europe/Berlin|慕尼黑|Munich/München|48.137|11.575
+DE|Europe/Berlin|法蘭克福|Frankfurt|50.110|8.682
+DE|Europe/Berlin|漢堡|Hamburg|53.551|9.993
+CH|Europe/Zurich|蘇黎世|Zurich|47.367|8.550
+CH|Europe/Zurich|日內瓦|Geneva|46.204|6.143
+AT|Europe/Vienna|維也納|Vienna|48.208|16.372
+IT|Europe/Rome|羅馬|Rome|41.892|12.511
+IT|Europe/Rome|米蘭|Milan|45.464|9.190
+IT|Europe/Rome|威尼斯|Venice|45.437|12.333
+IT|Europe/Rome|佛羅倫斯|Florence|43.779|11.246
+MT|Europe/Malta|瓦萊塔|Valletta/Malta|35.900|14.515
+MC|Europe/Monaco|摩納哥|Monaco|43.733|7.417
+VA|Europe/Vatican|梵蒂岡|Vatican|41.903|12.453
+DK|Europe/Copenhagen|哥本哈根|Copenhagen|55.676|12.566
+NO|Europe/Oslo|奧斯陸|Oslo|59.913|10.746
+SE|Europe/Stockholm|斯德哥爾摩|Stockholm|59.329|18.069
+FI|Europe/Helsinki|赫爾辛基|Helsinki|60.170|24.935
+IS|Atlantic/Reykjavik|雷克雅維克|Reykjavik|64.135|-21.895
+EE|Europe/Tallinn|塔林|Tallinn|59.437|24.754
+LV|Europe/Riga|里加|Riga|56.946|24.106
+LT|Europe/Vilnius|維爾紐斯|Vilnius|54.689|25.280
+PL|Europe/Warsaw|華沙|Warsaw|52.230|21.012
+PL|Europe/Warsaw|克拉科夫|Krakow|50.061|19.937
+CZ|Europe/Prague|布拉格|Prague|50.088|14.421
+SK|Europe/Bratislava|布拉提斯拉瓦|Bratislava|48.148|17.107
+HU|Europe/Budapest|布達佩斯|Budapest|47.498|19.040
+SI|Europe/Ljubljana|盧布爾雅那|Ljubljana|46.051|14.505
+HR|Europe/Zagreb|札格瑞布|Zagreb|45.814|15.978
+HR|Europe/Zagreb|杜布羅夫尼克|Dubrovnik|42.641|18.109
+BA|Europe/Sarajevo|塞拉耶佛|Sarajevo|43.849|18.356
+RS|Europe/Belgrade|貝爾格勒|Belgrade|44.804|20.465
+ME|Europe/Podgorica|波德里查|Podgorica|42.441|19.264
+MK|Europe/Skopje|史高比耶|Skopje|41.996|21.431
+AL|Europe/Tirane|地拉那|Tirana|41.328|19.819
+GR|Europe/Athens|雅典|Athens|37.984|23.728
+BG|Europe/Sofia|索非亞|Sofia|42.698|23.324
+RO|Europe/Bucharest|布加勒斯特|Bucharest|44.432|26.106
+MD|Europe/Chisinau|奇西瑙|Chisinau|47.006|28.858
+UA|Europe/Kyiv|基輔|Kyiv/Kiev|50.455|30.524
+UA|Europe/Kyiv|敖德薩|Odesa/Odessa|46.477|30.733
+BY|Europe/Minsk|明斯克|Minsk|53.900|27.567
+EG|Africa/Cairo|開羅|Cairo|30.063|31.250
+MA|Africa/Casablanca|卡薩布蘭卡|Casablanca|33.588|-7.611
+MA|Africa/Casablanca|馬拉喀什|Marrakesh/Marrakech|31.634|-8.000
+DZ|Africa/Algiers|阿爾及爾|Algiers|36.732|3.087
+TN|Africa/Tunis|突尼斯|Tunis|36.819|10.166
+LY|Africa/Tripoli|的黎波里|Tripoli|32.887|13.187
+SD|Africa/Khartoum|喀土穆|Khartoum|15.552|32.532
+ET|Africa/Addis_Ababa|阿迪斯阿貝巴|Addis Ababa|9.025|38.747
+KE|Africa/Nairobi|奈洛比|Nairobi|-1.283|36.817
+TZ|Africa/Dar_es_Salaam|三蘭港|Dar es Salaam|-6.823|39.270
+TZ|Africa/Dar_es_Salaam|尚吉巴|Zanzibar|-6.164|39.198
+UG|Africa/Kampala|坎帕拉|Kampala|0.316|32.582
+RW|Africa/Kigali|吉佳利|Kigali|-1.950|30.059
+NG|Africa/Lagos|拉哥斯|Lagos|6.454|3.395
+NG|Africa/Lagos|阿布加|Abuja|9.058|7.495
+GH|Africa/Accra|阿克拉|Accra|5.556|-0.197
+CI|Africa/Abidjan|阿必尚|Abidjan|5.354|-4.002
+SN|Africa/Dakar|達喀爾|Dakar|14.694|-17.444
+CM|Africa/Douala|杜阿拉|Douala/Yaounde/雅溫得|4.048|9.704
+CD|Africa/Kinshasa|金夏沙|Kinshasa|-4.328|15.314
+CD|Africa/Lubumbashi|盧本巴希|Lubumbashi|-11.661|27.479
+AO|Africa/Luanda|羅安達|Luanda|-8.837|13.234
+ZA|Africa/Johannesburg|約翰尼斯堡|Johannesburg|-26.202|28.044
+ZA|Africa/Johannesburg|開普敦|Cape Town|-33.926|18.423
+ZW|Africa/Harare|哈拉雷|Harare|-17.828|31.053
+ZM|Africa/Lusaka|路沙卡|Lusaka|-15.407|28.287
+MZ|Africa/Maputo|馬布多|Maputo|-25.966|32.583
+NA|Africa/Windhoek|溫荷克|Windhoek|-22.559|17.083
+BW|Africa/Gaborone|嘉柏隆里|Gaborone|-24.655|25.909
+MG|Indian/Antananarivo|安塔那那利佛|Antananarivo|-18.914|47.536
+MU|Indian/Mauritius|路易士港|Port Louis|-20.162|57.499
+SC|Indian/Mahe|維多利亞|Victoria Seychelles/Mahe|-4.667|55.467
+RE|Indian/Reunion|聖但尼|Saint-Denis Reunion|-20.867|55.467
+CV|Atlantic/Cape_Verde|普拉亞|Praia|14.932|-23.513
+US|America/New_York|紐約|New York/NYC|40.714|-74.006
+US|America/New_York|華盛頓特區|Washington DC|38.895|-77.036
+US|America/New_York|波士頓|Boston|42.358|-71.060
+US|America/New_York|費城|Philadelphia|39.952|-75.164
+US|America/New_York|亞特蘭大|Atlanta|33.749|-84.388
+US|America/New_York|邁阿密|Miami|25.774|-80.194
+US|America/New_York|奧蘭多|Orlando|28.538|-81.379
+US|America/Detroit|底特律|Detroit|42.331|-83.046
+US|America/Chicago|芝加哥|Chicago|41.850|-87.650
+US|America/Chicago|休士頓|Houston|29.763|-95.363
+US|America/Chicago|達拉斯|Dallas|32.783|-96.807
+US|America/Chicago|奧斯汀|Austin|30.267|-97.743
+US|America/Chicago|紐奧良|New Orleans|29.955|-90.075
+US|America/Chicago|明尼亞波利|Minneapolis|44.980|-93.264
+US|America/Denver|丹佛|Denver|39.739|-104.985
+US|America/Denver|鹽湖城|Salt Lake City|40.761|-111.891
+US|America/Phoenix|鳳凰城|Phoenix/Arizona/亞利桑那|33.448|-112.074
+US|America/Los_Angeles|洛杉磯|Los Angeles/LA|34.052|-118.244
+US|America/Los_Angeles|舊金山|San Francisco|37.775|-122.419
+US|America/Los_Angeles|聖地牙哥（加州）|San Diego|32.716|-117.165
+US|America/Los_Angeles|西雅圖|Seattle|47.606|-122.332
+US|America/Los_Angeles|波特蘭|Portland|45.523|-122.676
+US|America/Los_Angeles|拉斯維加斯|Las Vegas|36.175|-115.137
+US|America/Anchorage|安克拉治|Anchorage/Alaska/阿拉斯加|61.218|-149.900
+US|Pacific/Honolulu|檀香山|Honolulu/Hawaii/夏威夷|21.307|-157.858
+PR|America/Puerto_Rico|聖胡安|San Juan|18.466|-66.106
+GU|Pacific/Guam|關島|Guam/Hagatna|13.476|144.749
+AS|Pacific/Pago_Pago|巴哥巴哥|Pago Pago|-14.278|-170.702
+CA|America/Toronto|多倫多|Toronto|43.700|-79.416
+CA|America/Toronto|渥太華|Ottawa|45.411|-75.698
+CA|America/Toronto|蒙特婁|Montreal|45.509|-73.588
+CA|America/Halifax|哈利法克斯|Halifax|44.646|-63.573
+CA|America/St_Johns|聖約翰斯|St Johns/Newfoundland/紐芬蘭|47.565|-52.709
+CA|America/Winnipeg|溫尼伯|Winnipeg|49.884|-97.147
+CA|America/Regina|里賈納|Regina/Saskatchewan|50.450|-104.618
+CA|America/Edmonton|卡加利|Calgary|51.050|-114.085
+CA|America/Edmonton|艾德蒙頓|Edmonton|53.550|-113.469
+CA|America/Vancouver|溫哥華|Vancouver|49.250|-123.119
+CA|America/Whitehorse|白馬市|Whitehorse/Yukon|60.716|-135.054
+GL|America/Nuuk|努克|Nuuk/Greenland|64.183|-51.722
+BM|Atlantic/Bermuda|漢密爾頓|Hamilton Bermuda|32.283|-64.767
+MX|America/Mexico_City|墨西哥城|Mexico City/CDMX|19.428|-99.128
+MX|America/Mexico_City|瓜達拉哈拉|Guadalajara|20.667|-103.392
+MX|America/Mexico_City|普埃布拉|Puebla|19.038|-98.203
+MX|America/Mexico_City|瓦哈卡|Oaxaca|17.065|-96.724
+MX|America/Mexico_City|阿卡普科|Acapulco|16.853|-99.823
+MX|America/Monterrey|蒙特雷|Monterrey|25.675|-100.318
+MX|America/Cancun|坎昆|Cancun/Quintana Roo/Tulum/Playa del Carmen|21.174|-86.847
+MX|America/Merida|梅里達|Merida/Yucatan|20.975|-89.617
+MX|America/Mazatlan|馬薩特蘭|Mazatlan|23.233|-106.406
+MX|America/Mazatlan|洛斯卡沃斯|Los Cabos/Cabo San Lucas|22.891|-109.912
+MX|America/Hermosillo|埃莫西約|Hermosillo/Sonora|29.103|-110.977
+MX|America/Chihuahua|奇瓦瓦|Chihuahua|28.635|-106.089
+MX|America/Ciudad_Juarez|華雷斯城|Ciudad Juarez|31.733|-106.483
+MX|America/Tijuana|提華納|Tijuana|32.503|-117.004
+GT|America/Guatemala|瓜地馬拉市|Guatemala City|14.641|-90.513
+BZ|America/Belize|貝爾墨潘|Belmopan/Belize City|17.500|-88.198
+SV|America/El_Salvador|聖薩爾瓦多|San Salvador|13.689|-89.187
+HN|America/Tegucigalpa|德古斯加巴|Tegucigalpa|14.082|-87.207
+NI|America/Managua|馬拿瓜|Managua|12.133|-86.250
+CR|America/Costa_Rica|聖荷西|San Jose Costa Rica|9.933|-84.083
+PA|America/Panama|巴拿馬城|Panama City|9.334|-79.892
+CU|America/Havana|哈瓦那|Havana|23.133|-82.383
+JM|America/Jamaica|京斯敦|Kingston|17.997|-76.794
+HT|America/Port-au-Prince|太子港|Port-au-Prince|18.543|-72.339
+DO|America/Santo_Domingo|聖多明哥|Santo Domingo|18.472|-69.892
+BS|America/Nassau|拿索|Nassau|25.058|-77.343
+TT|America/Port_of_Spain|西班牙港|Port of Spain|10.667|-61.519
+BB|America/Barbados|布里奇頓|Bridgetown|13.107|-59.620
+CO|America/Bogota|波哥大|Bogota|4.610|-74.082
+CO|America/Bogota|麥德林|Medellin|6.252|-75.564
+VE|America/Caracas|卡拉卡斯|Caracas|10.488|-66.879
+EC|America/Guayaquil|基多|Quito|-0.230|-78.525
+EC|America/Guayaquil|瓜亞基爾|Guayaquil|-2.196|-79.886
+EC|Pacific/Galapagos|加拉巴哥群島|Galapagos|-0.900|-89.600
+PE|America/Lima|利馬|Lima|-12.043|-77.028
+PE|America/Lima|庫斯科|Cusco/Cuzco/Machu Picchu/馬丘比丘|-13.523|-71.967
+BO|America/La_Paz|拉巴斯|La Paz|-16.500|-68.150
+BO|America/La_Paz|聖克魯斯|Santa Cruz Bolivia|-17.784|-63.181
+BR|America/Sao_Paulo|聖保羅|Sao Paulo|-23.547|-46.636
+BR|America/Sao_Paulo|里約熱內盧|Rio de Janeiro/Rio|-22.906|-43.182
+BR|America/Sao_Paulo|巴西利亞|Brasilia|-15.780|-47.930
+BR|America/Sao_Paulo|阿雷格里港|Porto Alegre|-30.033|-51.230
+BR|America/Sao_Paulo|伊瓜蘇|Foz do Iguacu/Iguazu|-25.548|-54.588
+BR|America/Bahia|薩爾瓦多|Salvador/Bahia/巴伊亞|-12.971|-38.511
+BR|America/Recife|累西腓|Recife|-8.054|-34.881
+BR|America/Fortaleza|福塔雷薩|Fortaleza|-3.717|-38.543
+BR|America/Belem|貝倫|Belem|-1.456|-48.504
+BR|America/Noronha|費爾南多迪諾羅尼亞|Fernando de Noronha|-3.850|-32.417
+BR|America/Manaus|瑪瑙斯|Manaus/Amazonas/亞馬遜|-3.102|-60.025
+BR|America/Cuiaba|庫亞巴|Cuiaba|-15.596|-56.097
+BR|America/Campo_Grande|大坎普|Campo Grande|-20.443|-54.646
+BR|America/Porto_Velho|波多韋柳|Porto Velho|-8.762|-63.904
+BR|America/Rio_Branco|里約布蘭科|Rio Branco/Acre|-9.975|-67.810
+AR|America/Argentina/Buenos_Aires|布宜諾斯艾利斯|Buenos Aires|-34.613|-58.377
+AR|America/Argentina/Cordoba|科爾多瓦|Cordoba Argentina|-31.400|-64.183
+AR|America/Argentina/Mendoza|門多薩|Mendoza|-32.891|-68.827
+AR|America/Argentina/Ushuaia|烏斯懷亞|Ushuaia|-54.811|-68.316
+CL|America/Santiago|聖地牙哥|Santiago|-33.457|-70.648
+CL|America/Punta_Arenas|蓬塔阿雷納斯|Punta Arenas/Patagonia/巴塔哥尼亞|-53.155|-70.911
+CL|Pacific/Easter|復活節島|Easter Island/Rapa Nui|-27.150|-109.433
+PY|America/Asuncion|亞松森|Asuncion|-25.286|-57.647
+UY|America/Montevideo|蒙特維多|Montevideo|-34.903|-56.188
+GY|America/Guyana|喬治城|Georgetown|6.804|-58.155
+SR|America/Paramaribo|巴拉馬利波|Paramaribo|5.866|-55.167
+GF|America/Cayenne|開雲|Cayenne|4.933|-52.333
+FK|Atlantic/Stanley|史坦利|Stanley Falklands|-51.700|-57.850
+AU|Australia/Sydney|雪梨|Sydney|-33.868|151.207
+AU|Australia/Sydney|坎培拉|Canberra|-35.283|149.128
+AU|Australia/Melbourne|墨爾本|Melbourne|-37.814|144.963
+AU|Australia/Brisbane|布里斯本|Brisbane|-27.468|153.028
+AU|Australia/Brisbane|黃金海岸|Gold Coast|-28.000|153.431
+AU|Australia/Adelaide|阿德雷德|Adelaide|-34.929|138.599
+AU|Australia/Darwin|達爾文|Darwin|-12.461|130.842
+AU|Australia/Perth|伯斯|Perth|-31.952|115.861
+AU|Australia/Hobart|荷巴特|Hobart/Tasmania/塔斯馬尼亞|-42.879|147.329
+AU|Australia/Eucla|尤克拉|Eucla|-31.717|128.867
+AU|Australia/Lord_Howe|豪勳爵島|Lord Howe Island|-31.550|159.083
+NZ|Pacific/Auckland|奧克蘭|Auckland|-36.849|174.763
+NZ|Pacific/Auckland|威靈頓|Wellington|-41.287|174.776
+NZ|Pacific/Auckland|基督城|Christchurch|-43.533|172.633
+NZ|Pacific/Chatham|查塔姆群島|Chatham Islands|-43.950|-176.550
+FJ|Pacific/Fiji|蘇瓦|Suva|-18.142|178.441
+PG|Pacific/Port_Moresby|莫士比港|Port Moresby|-9.477|147.151
+SB|Pacific/Guadalcanal|荷尼阿拉|Honiara|-9.433|159.950
+VU|Pacific/Efate|維拉港|Port Vila|-17.736|168.314
+NC|Pacific/Noumea|努美阿|Noumea|-22.274|166.449
+WS|Pacific/Apia|阿皮亞|Apia|-13.833|-171.767
+TO|Pacific/Tongatapu|努瓜婁發|Nukualofa|-21.139|-175.202
+TV|Pacific/Funafuti|富納富提|Funafuti|-8.524|179.194
+CK|Pacific/Rarotonga|拉羅湯加|Rarotonga|-21.233|-159.767
+PF|Pacific/Tahiti|大溪地|Tahiti/Papeete|-17.537|-149.566
+PF|Pacific/Marquesas|馬克薩斯群島|Marquesas|-9.000|-139.500
+PW|Pacific/Palau|柯羅|Koror/Palau|7.340|134.473
+MH|Pacific/Majuro|馬久羅|Majuro|7.090|171.380
+KI|Pacific/Tarawa|塔拉瓦|Tarawa|1.328|172.977
+KI|Pacific/Kiritimati|聖誕島|Kiritimati/Christmas Island|1.867|-157.333
+`;
+  // Every IANA time zone by country, from tzdata zone.tab: country|zone|area note|lat|lon
+  const ZONE_DATA = `
+AD|Europe/Andorra||42.500|1.517
+AE|Asia/Dubai||25.300|55.300
+AF|Asia/Kabul||34.517|69.200
+AG|America/Antigua||17.050|-61.800
+AI|America/Anguilla||18.200|-63.067
+AL|Europe/Tirane||41.333|19.833
+AM|Asia/Yerevan||40.183|44.500
+AO|Africa/Luanda||-8.800|13.233
+AQ|Antarctica/McMurdo|New Zealand time - McMurdo, South Pole|-77.833|166.600
+AQ|Antarctica/Casey|Casey|-66.283|110.517
+AQ|Antarctica/Davis|Davis|-68.583|77.967
+AQ|Antarctica/DumontDUrville|Dumont-d'Urville|-66.667|140.017
+AQ|Antarctica/Mawson|Mawson|-67.600|62.883
+AQ|Antarctica/Palmer|Palmer|-64.800|-64.100
+AQ|Antarctica/Rothera|Rothera|-67.567|-68.133
+AQ|Antarctica/Syowa|Syowa|-69.006|39.590
+AQ|Antarctica/Troll|Troll|-72.011|2.535
+AQ|Antarctica/Vostok|Vostok|-78.400|106.900
+AR|America/Argentina/Buenos_Aires|Buenos Aires (BA, CF)|-34.600|-58.450
+AR|America/Argentina/Cordoba|Argentina (most areas: CB, CC, CN, ER, FM, MN, SE, SF)|-31.400|-64.183
+AR|America/Argentina/Salta|Salta (SA, LP, NQ, RN)|-24.783|-65.417
+AR|America/Argentina/Jujuy|Jujuy (JY)|-24.183|-65.300
+AR|America/Argentina/Tucuman|Tucuman (TM)|-26.817|-65.217
+AR|America/Argentina/Catamarca|Catamarca (CT), Chubut (CH)|-28.467|-65.783
+AR|America/Argentina/La_Rioja|La Rioja (LR)|-29.433|-66.850
+AR|America/Argentina/San_Juan|San Juan (SJ)|-31.533|-68.517
+AR|America/Argentina/Mendoza|Mendoza (MZ)|-32.883|-68.817
+AR|America/Argentina/San_Luis|San Luis (SL)|-33.317|-66.350
+AR|America/Argentina/Rio_Gallegos|Santa Cruz (SC)|-51.633|-69.217
+AR|America/Argentina/Ushuaia|Tierra del Fuego (TF)|-54.800|-68.300
+AS|Pacific/Pago_Pago||-14.267|-170.700
+AT|Europe/Vienna||48.217|16.333
+AU|Australia/Lord_Howe|Lord Howe Island|-31.550|159.083
+AU|Antarctica/Macquarie|Macquarie Island|-54.500|158.950
+AU|Australia/Hobart|Tasmania|-42.883|147.317
+AU|Australia/Melbourne|Victoria|-37.817|144.967
+AU|Australia/Sydney|New South Wales (most areas)|-33.867|151.217
+AU|Australia/Broken_Hill|New South Wales (Yancowinna)|-31.950|141.450
+AU|Australia/Brisbane|Queensland (most areas)|-27.467|153.033
+AU|Australia/Lindeman|Queensland (Whitsunday Islands)|-20.267|149.000
+AU|Australia/Adelaide|South Australia|-34.917|138.583
+AU|Australia/Darwin|Northern Territory|-12.467|130.833
+AU|Australia/Perth|Western Australia (most areas)|-31.950|115.850
+AU|Australia/Eucla|Western Australia (Eucla)|-31.717|128.867
+AW|America/Aruba||12.500|-69.967
+AX|Europe/Mariehamn||60.100|19.950
+AZ|Asia/Baku||40.383|49.850
+BA|Europe/Sarajevo||43.867|18.417
+BB|America/Barbados||13.100|-59.617
+BD|Asia/Dhaka||23.717|90.417
+BE|Europe/Brussels||50.833|4.333
+BF|Africa/Ouagadougou||12.367|-1.517
+BG|Europe/Sofia||42.683|23.317
+BH|Asia/Bahrain||26.383|50.583
+BI|Africa/Bujumbura||-3.383|29.367
+BJ|Africa/Porto-Novo||6.483|2.617
+BL|America/St_Barthelemy||17.883|-62.850
+BM|Atlantic/Bermuda||32.283|-64.767
+BN|Asia/Brunei||4.933|114.917
+BO|America/La_Paz||-16.500|-68.150
+BQ|America/Kralendijk||12.151|-68.277
+BR|America/Noronha|Atlantic islands|-3.850|-32.417
+BR|America/Belem|Para (east), Amapa|-1.450|-48.483
+BR|America/Fortaleza|Brazil (northeast: MA, PI, CE, RN, PB)|-3.717|-38.500
+BR|America/Recife|Pernambuco|-8.050|-34.900
+BR|America/Araguaina|Tocantins|-7.200|-48.200
+BR|America/Maceio|Alagoas, Sergipe|-9.667|-35.717
+BR|America/Bahia|Bahia|-12.983|-38.517
+BR|America/Sao_Paulo|Brazil (southeast: GO, DF, MG, ES, RJ, SP, PR, SC, RS)|-23.533|-46.617
+BR|America/Campo_Grande|Mato Grosso do Sul|-20.450|-54.617
+BR|America/Cuiaba|Mato Grosso|-15.583|-56.083
+BR|America/Santarem|Para (west)|-2.433|-54.867
+BR|America/Porto_Velho|Rondonia|-8.767|-63.900
+BR|America/Boa_Vista|Roraima|2.817|-60.667
+BR|America/Manaus|Amazonas (east)|-3.133|-60.017
+BR|America/Eirunepe|Amazonas (west)|-6.667|-69.867
+BR|America/Rio_Branco|Acre|-9.967|-67.800
+BS|America/Nassau||25.083|-77.350
+BT|Asia/Thimphu||27.467|89.650
+BW|Africa/Gaborone||-24.650|25.917
+BY|Europe/Minsk||53.900|27.567
+BZ|America/Belize||17.500|-88.200
+CA|America/St_Johns|Newfoundland, Labrador (SE)|47.567|-52.717
+CA|America/Halifax|Atlantic - NS (most areas), PE|44.650|-63.600
+CA|America/Glace_Bay|Atlantic - NS (Cape Breton)|46.200|-59.950
+CA|America/Moncton|Atlantic - New Brunswick|46.100|-64.783
+CA|America/Goose_Bay|Atlantic - Labrador (most areas)|53.333|-60.417
+CA|America/Blanc-Sablon|AST - QC (Lower North Shore)|51.417|-57.117
+CA|America/Toronto|Eastern - ON & QC (most areas)|43.650|-79.383
+CA|America/Iqaluit|Eastern - NU (most areas)|63.733|-68.467
+CA|America/Atikokan|EST - ON (Atikokan), NU (Coral H)|48.759|-91.622
+CA|America/Winnipeg|EST - Manitoba, ON (northwest)|49.883|-97.150
+CA|America/Resolute|Central - NU (Resolute)|74.696|-94.829
+CA|America/Rankin_Inlet|Central - NU (central)|62.817|-92.083
+CA|America/Regina|CST - SK (most areas)|50.400|-104.650
+CA|America/Swift_Current|CST - SK (midwest)|50.283|-107.833
+CA|America/Edmonton|CST - AB, BC(E), NT(E), SK(W)|53.550|-113.467
+CA|America/Cambridge_Bay|Mountain - NU (west)|69.114|-105.053
+CA|America/Inuvik|CST - NT (west)|68.350|-133.717
+CA|America/Vancouver|MST - BC (most areas)|49.267|-123.117
+CA|America/Creston|MST - BC (Creston)|49.100|-116.517
+CA|America/Dawson_Creek|MST - BC (Dawson Cr, Ft St John)|55.767|-120.233
+CA|America/Fort_Nelson|MST - BC (Ft Nelson)|58.800|-122.700
+CA|America/Whitehorse|MST - Yukon (east)|60.717|-135.050
+CA|America/Dawson|MST - Yukon (west)|64.067|-139.417
+CC|Indian/Cocos||-12.167|96.917
+CD|Africa/Kinshasa|Dem. Rep. of Congo (west)|-4.300|15.300
+CD|Africa/Lubumbashi|Dem. Rep. of Congo (east)|-11.667|27.467
+CF|Africa/Bangui||4.367|18.583
+CG|Africa/Brazzaville||-4.267|15.283
+CH|Europe/Zurich||47.383|8.533
+CI|Africa/Abidjan||5.317|-4.033
+CK|Pacific/Rarotonga||-21.233|-159.767
+CL|America/Santiago|most of Chile|-33.450|-70.667
+CL|America/Coyhaique|Aysen Region|-45.567|-72.067
+CL|America/Punta_Arenas|Magallanes Region|-53.150|-70.917
+CL|Pacific/Easter|Easter Island|-27.150|-109.433
+CM|Africa/Douala||4.050|9.700
+CN|Asia/Shanghai|Beijing Time|31.233|121.467
+CN|Asia/Urumqi|Xinjiang Time|43.800|87.583
+CO|America/Bogota||4.600|-74.083
+CR|America/Costa_Rica||9.933|-84.083
+CU|America/Havana||23.133|-82.367
+CV|Atlantic/Cape_Verde||14.917|-23.517
+CW|America/Curacao||12.183|-69.000
+CX|Indian/Christmas||-10.417|105.717
+CY|Asia/Nicosia|most of Cyprus|35.167|33.367
+CY|Asia/Famagusta|Northern Cyprus|35.117|33.950
+CZ|Europe/Prague||50.083|14.433
+DE|Europe/Berlin|most of Germany|52.500|13.367
+DE|Europe/Busingen|Busingen|47.700|8.683
+DJ|Africa/Djibouti||11.600|43.150
+DK|Europe/Copenhagen||55.667|12.583
+DM|America/Dominica||15.300|-61.400
+DO|America/Santo_Domingo||18.467|-69.900
+DZ|Africa/Algiers||36.783|3.050
+EC|America/Guayaquil|Ecuador (mainland)|-2.167|-79.833
+EC|Pacific/Galapagos|Galapagos Islands|-0.900|-89.600
+EE|Europe/Tallinn||59.417|24.750
+EG|Africa/Cairo||30.050|31.250
+EH|Africa/El_Aaiun||27.150|-13.200
+ER|Africa/Asmara||15.333|38.883
+ES|Europe/Madrid|Spain (mainland)|40.400|-3.683
+ES|Africa/Ceuta|Ceuta, Melilla|35.883|-5.317
+ES|Atlantic/Canary|Canary Islands|28.100|-15.400
+ET|Africa/Addis_Ababa||9.033|38.700
+FI|Europe/Helsinki||60.167|24.967
+FJ|Pacific/Fiji||-18.133|178.417
+FK|Atlantic/Stanley||-51.700|-57.850
+FM|Pacific/Chuuk|Chuuk/Truk, Yap|7.417|151.783
+FM|Pacific/Pohnpei|Pohnpei/Ponape|6.967|158.217
+FM|Pacific/Kosrae|Kosrae|5.317|162.983
+FO|Atlantic/Faroe||62.017|-6.767
+FR|Europe/Paris||48.867|2.333
+GA|Africa/Libreville||0.383|9.450
+GB|Europe/London||51.508|-0.125
+GD|America/Grenada||12.050|-61.750
+GE|Asia/Tbilisi||41.717|44.817
+GF|America/Cayenne||4.933|-52.333
+GG|Europe/Guernsey||49.455|-2.536
+GH|Africa/Accra||5.550|-0.217
+GI|Europe/Gibraltar||36.133|-5.350
+GL|America/Nuuk|most of Greenland|64.183|-51.733
+GL|America/Danmarkshavn|National Park (east coast)|76.767|-18.667
+GL|America/Scoresbysund|Scoresbysund/Ittoqqortoormiit|70.483|-21.967
+GL|America/Thule|Thule/Pituffik|76.567|-68.783
+GM|Africa/Banjul||13.467|-16.650
+GN|Africa/Conakry||9.517|-13.717
+GP|America/Guadeloupe||16.233|-61.533
+GQ|Africa/Malabo||3.750|8.783
+GR|Europe/Athens||37.967|23.717
+GS|Atlantic/South_Georgia||-54.267|-36.533
+GT|America/Guatemala||14.633|-90.517
+GU|Pacific/Guam||13.467|144.750
+GW|Africa/Bissau||11.850|-15.583
+GY|America/Guyana||6.800|-58.167
+HK|Asia/Hong_Kong||22.283|114.150
+HN|America/Tegucigalpa||14.100|-87.217
+HR|Europe/Zagreb||45.800|15.967
+HT|America/Port-au-Prince||18.533|-72.333
+HU|Europe/Budapest||47.500|19.083
+ID|Asia/Jakarta|Java, Sumatra|-6.167|106.800
+ID|Asia/Pontianak|Borneo (west, central)|-0.033|109.333
+ID|Asia/Makassar|Borneo (east, south), Sulawesi/Celebes, Bali, Nusa Tengarra, Timor (west)|-5.117|119.400
+ID|Asia/Jayapura|New Guinea (West Papua / Irian Jaya), Malukus/Moluccas|-2.533|140.700
+IE|Europe/Dublin||53.333|-6.250
+IL|Asia/Jerusalem||31.781|35.224
+IM|Europe/Isle_of_Man||54.150|-4.467
+IN|Asia/Kolkata||22.533|88.367
+IO|Indian/Chagos||-7.333|72.417
+IQ|Asia/Baghdad||33.350|44.417
+IR|Asia/Tehran||35.667|51.433
+IS|Atlantic/Reykjavik||64.150|-21.850
+IT|Europe/Rome||41.900|12.483
+JE|Europe/Jersey||49.184|-2.107
+JM|America/Jamaica||17.968|-76.793
+JO|Asia/Amman||31.950|35.933
+JP|Asia/Tokyo||35.654|139.745
+KE|Africa/Nairobi||-1.283|36.817
+KG|Asia/Bishkek||42.900|74.600
+KH|Asia/Phnom_Penh||11.550|104.917
+KI|Pacific/Tarawa|Gilbert Islands|1.417|173.000
+KI|Pacific/Kanton|Phoenix Islands|-2.783|-171.717
+KI|Pacific/Kiritimati|Line Islands|1.867|-157.333
+KM|Indian/Comoro||-11.683|43.267
+KN|America/St_Kitts||17.300|-62.717
+KP|Asia/Pyongyang||39.017|125.750
+KR|Asia/Seoul||37.550|126.967
+KW|Asia/Kuwait||29.333|47.983
+KY|America/Cayman||19.300|-81.383
+KZ|Asia/Almaty|most of Kazakhstan|43.250|76.950
+KZ|Asia/Qyzylorda|Qyzylorda/Kyzylorda/Kzyl-Orda|44.800|65.467
+KZ|Asia/Qostanay|Qostanay/Kostanay/Kustanay|53.200|63.617
+KZ|Asia/Aqtobe|Aqtobe/Aktobe|50.283|57.167
+KZ|Asia/Aqtau|Mangghystau/Mankistau|44.517|50.267
+KZ|Asia/Atyrau|Atyrau/Atirau/Gur'yev|47.117|51.933
+KZ|Asia/Oral|West Kazakhstan|51.217|51.350
+LA|Asia/Vientiane||17.967|102.600
+LB|Asia/Beirut||33.883|35.500
+LC|America/St_Lucia||14.017|-61.000
+LI|Europe/Vaduz||47.150|9.517
+LK|Asia/Colombo||6.933|79.850
+LR|Africa/Monrovia||6.300|-10.783
+LS|Africa/Maseru||-29.467|27.500
+LT|Europe/Vilnius||54.683|25.317
+LU|Europe/Luxembourg||49.600|6.150
+LV|Europe/Riga||56.950|24.100
+LY|Africa/Tripoli||32.900|13.183
+MA|Africa/Casablanca||33.650|-7.583
+MC|Europe/Monaco||43.700|7.383
+MD|Europe/Chisinau||47.000|28.833
+ME|Europe/Podgorica||42.433|19.267
+MF|America/Marigot||18.067|-63.083
+MG|Indian/Antananarivo||-18.917|47.517
+MH|Pacific/Majuro|most of Marshall Islands|7.150|171.200
+MH|Pacific/Kwajalein|Kwajalein|9.083|167.333
+MK|Europe/Skopje||41.983|21.433
+ML|Africa/Bamako||12.650|-8.000
+MM|Asia/Yangon||16.783|96.167
+MN|Asia/Ulaanbaatar|most of Mongolia|47.917|106.883
+MN|Asia/Hovd|Bayan-Olgii, Hovd, Uvs|48.017|91.650
+MO|Asia/Macau||22.197|113.542
+MP|Pacific/Saipan||15.200|145.750
+MQ|America/Martinique||14.600|-61.083
+MR|Africa/Nouakchott||18.100|-15.950
+MS|America/Montserrat||16.717|-62.217
+MT|Europe/Malta||35.900|14.517
+MU|Indian/Mauritius||-20.167|57.500
+MV|Indian/Maldives||4.167|73.500
+MW|Africa/Blantyre||-15.783|35.000
+MX|America/Mexico_City|Central Mexico|19.400|-99.150
+MX|America/Cancun|Quintana Roo|21.083|-86.767
+MX|America/Merida|Campeche, Yucatan|20.967|-89.617
+MX|America/Monterrey|Durango; Coahuila, Nuevo Leon, Tamaulipas (most areas)|25.667|-100.317
+MX|America/Matamoros|Coahuila, Nuevo Leon, Tamaulipas (US border)|25.833|-97.500
+MX|America/Chihuahua|Chihuahua (most areas)|28.633|-106.083
+MX|America/Ciudad_Juarez|Chihuahua (US border - west)|31.733|-106.483
+MX|America/Ojinaga|Chihuahua (US border - east)|29.567|-104.417
+MX|America/Mazatlan|Baja California Sur, Nayarit (most areas), Sinaloa|23.217|-106.417
+MX|America/Bahia_Banderas|Bahia de Banderas|20.800|-105.250
+MX|America/Hermosillo|Sonora|29.067|-110.967
+MX|America/Tijuana|Baja California|32.533|-117.017
+MY|Asia/Kuala_Lumpur|Malaysia (peninsula)|3.167|101.700
+MY|Asia/Kuching|Sabah, Sarawak|1.550|110.333
+MZ|Africa/Maputo||-25.967|32.583
+NA|Africa/Windhoek||-22.567|17.100
+NC|Pacific/Noumea||-22.267|166.450
+NE|Africa/Niamey||13.517|2.117
+NF|Pacific/Norfolk||-29.050|167.967
+NG|Africa/Lagos||6.450|3.400
+NI|America/Managua||12.150|-86.283
+NL|Europe/Amsterdam||52.367|4.900
+NO|Europe/Oslo||59.917|10.750
+NP|Asia/Kathmandu||27.717|85.317
+NR|Pacific/Nauru||-0.517|166.917
+NU|Pacific/Niue||-19.017|-169.917
+NZ|Pacific/Auckland|most of New Zealand|-36.867|174.767
+NZ|Pacific/Chatham|Chatham Islands|-43.950|-176.550
+OM|Asia/Muscat||23.600|58.583
+PA|America/Panama||8.967|-79.533
+PE|America/Lima||-12.050|-77.050
+PF|Pacific/Tahiti|Society Islands|-17.533|-149.567
+PF|Pacific/Marquesas|Marquesas Islands|-9.000|-139.500
+PF|Pacific/Gambier|Gambier Islands|-23.133|-134.950
+PG|Pacific/Port_Moresby|most of Papua New Guinea|-9.500|147.167
+PG|Pacific/Bougainville|Bougainville|-6.217|155.567
+PH|Asia/Manila||14.587|120.968
+PK|Asia/Karachi||24.867|67.050
+PL|Europe/Warsaw||52.250|21.000
+PM|America/Miquelon||47.050|-56.333
+PN|Pacific/Pitcairn||-25.067|-130.083
+PR|America/Puerto_Rico||18.468|-66.106
+PS|Asia/Gaza|Gaza Strip|31.500|34.467
+PS|Asia/Hebron|West Bank|31.533|35.095
+PT|Europe/Lisbon|Portugal (mainland)|38.717|-9.133
+PT|Atlantic/Madeira|Madeira Islands|32.633|-16.900
+PT|Atlantic/Azores|Azores|37.733|-25.667
+PW|Pacific/Palau||7.333|134.483
+PY|America/Asuncion||-25.267|-57.667
+QA|Asia/Qatar||25.283|51.533
+RE|Indian/Reunion||-20.867|55.467
+RO|Europe/Bucharest||44.433|26.100
+RS|Europe/Belgrade||44.833|20.500
+RU|Europe/Kaliningrad|MSK-01 - Kaliningrad|54.717|20.500
+RU|Europe/Moscow|MSK+00 - Moscow area|55.756|37.618
+UA|Europe/Simferopol|Crimea|44.950|34.100
+RU|Europe/Kirov|MSK+00 - Kirov|58.600|49.650
+RU|Europe/Volgograd|MSK+00 - Volgograd|48.733|44.417
+RU|Europe/Astrakhan|MSK+01 - Astrakhan|46.350|48.050
+RU|Europe/Saratov|MSK+01 - Saratov|51.567|46.033
+RU|Europe/Ulyanovsk|MSK+01 - Ulyanovsk|54.333|48.400
+RU|Europe/Samara|MSK+01 - Samara, Udmurtia|53.200|50.150
+RU|Asia/Yekaterinburg|MSK+02 - Urals|56.850|60.600
+RU|Asia/Omsk|MSK+03 - Omsk|55.000|73.400
+RU|Asia/Novosibirsk|MSK+04 - Novosibirsk|55.033|82.917
+RU|Asia/Barnaul|MSK+04 - Altai|53.367|83.750
+RU|Asia/Tomsk|MSK+04 - Tomsk|56.500|84.967
+RU|Asia/Novokuznetsk|MSK+04 - Kemerovo|53.750|87.117
+RU|Asia/Krasnoyarsk|MSK+04 - Krasnoyarsk area|56.017|92.833
+RU|Asia/Irkutsk|MSK+05 - Irkutsk, Buryatia|52.267|104.333
+RU|Asia/Chita|MSK+06 - Zabaykalsky|52.050|113.467
+RU|Asia/Yakutsk|MSK+06 - Lena River|62.000|129.667
+RU|Asia/Khandyga|MSK+06 - Tomponsky, Ust-Maysky|62.656|135.554
+RU|Asia/Vladivostok|MSK+07 - Amur River|43.167|131.933
+RU|Asia/Ust-Nera|MSK+07 - Oymyakonsky|64.560|143.227
+RU|Asia/Magadan|MSK+08 - Magadan|59.567|150.800
+RU|Asia/Sakhalin|MSK+08 - Sakhalin Island|46.967|142.700
+RU|Asia/Srednekolymsk|MSK+08 - Sakha (E), N Kuril Is|67.467|153.717
+RU|Asia/Kamchatka|MSK+09 - Kamchatka|53.017|158.650
+RU|Asia/Anadyr|MSK+09 - Bering Sea|64.750|177.483
+RW|Africa/Kigali||-1.950|30.067
+SA|Asia/Riyadh||24.633|46.717
+SB|Pacific/Guadalcanal||-9.533|160.200
+SC|Indian/Mahe||-4.667|55.467
+SD|Africa/Khartoum||15.600|32.533
+SE|Europe/Stockholm||59.333|18.050
+SG|Asia/Singapore||1.283|103.850
+SH|Atlantic/St_Helena||-15.917|-5.700
+SI|Europe/Ljubljana||46.050|14.517
+SJ|Arctic/Longyearbyen||78.000|16.000
+SK|Europe/Bratislava||48.150|17.117
+SL|Africa/Freetown||8.500|-13.250
+SM|Europe/San_Marino||43.917|12.467
+SN|Africa/Dakar||14.667|-17.433
+SO|Africa/Mogadishu||2.067|45.367
+SR|America/Paramaribo||5.833|-55.167
+SS|Africa/Juba||4.850|31.617
+ST|Africa/Sao_Tome||0.333|6.733
+SV|America/El_Salvador||13.700|-89.200
+SX|America/Lower_Princes||18.051|-63.047
+SY|Asia/Damascus||33.500|36.300
+SZ|Africa/Mbabane||-26.300|31.100
+TC|America/Grand_Turk||21.467|-71.133
+TD|Africa/Ndjamena||12.117|15.050
+TF|Indian/Kerguelen||-49.353|70.218
+TG|Africa/Lome||6.133|1.217
+TH|Asia/Bangkok||13.750|100.517
+TJ|Asia/Dushanbe||38.583|68.800
+TK|Pacific/Fakaofo||-9.367|-171.233
+TL|Asia/Dili||-8.550|125.583
+TM|Asia/Ashgabat||37.950|58.383
+TN|Africa/Tunis||36.800|10.183
+TO|Pacific/Tongatapu||-21.133|-175.200
+TR|Europe/Istanbul||41.017|28.967
+TT|America/Port_of_Spain||10.650|-61.517
+TV|Pacific/Funafuti||-8.517|179.217
+TW|Asia/Taipei||25.050|121.500
+TZ|Africa/Dar_es_Salaam||-6.800|39.283
+UA|Europe/Kyiv|most of Ukraine|50.433|30.517
+UG|Africa/Kampala||0.317|32.417
+UM|Pacific/Midway|Midway Islands|28.217|-177.367
+UM|Pacific/Wake|Wake Island|19.283|166.617
+US|America/New_York|Eastern (most areas)|40.714|-74.006
+US|America/Detroit|Eastern - MI (most areas)|42.331|-83.046
+US|America/Kentucky/Louisville|Eastern - KY (Louisville area)|38.254|-85.759
+US|America/Kentucky/Monticello|Eastern - KY (Wayne)|36.830|-84.849
+US|America/Indiana/Indianapolis|Eastern - IN (most areas)|39.768|-86.158
+US|America/Indiana/Vincennes|Eastern - IN (Da, Du, K, Mn)|38.677|-87.529
+US|America/Indiana/Winamac|Eastern - IN (Pulaski)|41.051|-86.603
+US|America/Indiana/Marengo|Eastern - IN (Crawford)|38.376|-86.345
+US|America/Indiana/Petersburg|Eastern - IN (Pike)|38.492|-87.279
+US|America/Indiana/Vevay|Eastern - IN (Switzerland)|38.748|-85.067
+US|America/Chicago|Central (most areas)|41.850|-87.650
+US|America/Indiana/Tell_City|Central - IN (Perry)|37.953|-86.761
+US|America/Indiana/Knox|Central - IN (Starke)|41.296|-86.625
+US|America/Menominee|Central - MI (Wisconsin border)|45.108|-87.614
+US|America/North_Dakota/Center|Central - ND (Oliver)|47.116|-101.299
+US|America/North_Dakota/New_Salem|Central - ND (Morton rural)|46.845|-101.411
+US|America/North_Dakota/Beulah|Central - ND (Mercer)|47.264|-101.778
+US|America/Denver|Mountain (most areas)|39.739|-104.984
+US|America/Boise|Mountain - ID (south), OR (east)|43.614|-116.203
+US|America/Phoenix|MST - AZ (except Navajo)|33.448|-112.073
+US|America/Los_Angeles|Pacific|34.052|-118.243
+US|America/Anchorage|Alaska (most areas)|61.218|-149.900
+US|America/Juneau|Alaska - Juneau area|58.302|-134.420
+US|America/Sitka|Alaska - Sitka area|57.176|-135.302
+US|America/Metlakatla|Alaska - Annette Island|55.127|-131.576
+US|America/Yakutat|Alaska - Yakutat|59.547|-139.727
+US|America/Nome|Alaska (west)|64.501|-165.406
+US|America/Adak|Alaska - western Aleutians|51.880|-176.658
+US|Pacific/Honolulu|Hawaii|21.307|-157.858
+UY|America/Montevideo||-34.909|-56.213
+UZ|Asia/Samarkand|Uzbekistan (west)|39.667|66.800
+UZ|Asia/Tashkent|Uzbekistan (east)|41.333|69.300
+VA|Europe/Vatican||41.902|12.453
+VC|America/St_Vincent||13.150|-61.233
+VE|America/Caracas||10.500|-66.933
+VG|America/Tortola||18.450|-64.617
+VI|America/St_Thomas||18.350|-64.933
+VN|Asia/Ho_Chi_Minh||10.750|106.667
+VU|Pacific/Efate||-17.667|168.417
+WF|Pacific/Wallis||-13.300|-176.167
+WS|Pacific/Apia||-13.833|-171.733
+YE|Asia/Aden||12.750|45.200
+YT|Indian/Mayotte||-12.783|45.233
+ZA|Africa/Johannesburg||-26.250|28.000
+ZM|Africa/Lusaka||-15.417|28.283
+ZW|Africa/Harare||-17.833|31.050
+`;
+
+  const LEGACY = { la: "losangeles", mexico: "mexicocity", delhi: "newdelhi", panama: "panamacity" };
+  const canon = id => LEGACY[id] || id;
+  const COUNTRY_ZH = { TW: "台灣", HK: "香港", MO: "澳門", KR: "韓國", KP: "北韓", PS: "巴勒斯坦", AE: "阿聯", PE: "祕魯", CD: "剛果民主共和國", CG: "剛果共和國" };
+  const COUNTRY_ALIAS = { KR: "南韓 大韓民國", AE: "阿拉伯聯合大公國 阿聯酋 UAE", GB: "UK 英格蘭 England 蘇格蘭 Scotland", US: "USA 美利堅", HK: "中國香港 Hong Kong SAR China", MO: "中國澳門 Macao SAR China", CD: "剛果 金夏沙", CG: "剛果 布拉薩", NL: "Holland", CY: "塞浦路斯", PS: "巴勒斯坦自治區 Palestine Palestinian Territories" };
+  let dnZh = null, dnEn = null;
+  try { dnZh = new Intl.DisplayNames(["zh-TW"], { type: "region" }); dnEn = new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) {}
+  const countryZh = cc => COUNTRY_ZH[cc] || (dnZh && dnZh.of(cc)) || cc;
+  const countryEn = cc => (dnEn && dnEn.of(cc)) || "";
+
+  // ---- language (中文 / English) ----
+  const LANG_KEY = "sunnytravel.worldclock.lang";
+  let lang = "zh";
+  try { if (localStorage.getItem(LANG_KEY) === "en") lang = "en"; } catch (e) {}
+  const I18N = {
+    zh: {
+      title: "晴天旅遊世界時鐘", local: "本地", add: "新增城市", close: "關閉",
+      search: "搜尋國家或城市（例如：巴西、坎昆、Cyprus）", undo: "復原",
+      removed: n => `已移除 ${n}`, added: "已加入", cities: "城市", otherZones: "其他時區",
+      none: q => `找不到「${q}」。可以試試國家名、城市名或英文名稱。`,
+      empty: "除了本地時間，目前沒有其他城市。",
+      remove: "移除", removeAria: n => `移除 ${n}`, drag: "拖曳以調整順序", dragAria: n => `調整 ${n} 的順序（可用方向鍵）`,
+      day: "白天", night: "夜晚", today: "今天", tomorrow: "明天", yesterday: "昨天", days: n => `${n > 0 ? "+" : ""}${n} 天`,
+      same: "與本地相同", ahead: t => `快 ${t}`, behind: t => `慢 ${t}`, hm: (h, m) => (h ? h + " 小時" : "") + (m ? (h ? " " : "") + m + " 分" : ""),
+      sep: "・", date: (i, wd) => `${i.y}年${i.mo}月${i.d}日 ${wd}`,
+      regions: { 亞洲: "亞洲", 歐洲: "歐洲", 北美洲: "北美洲", 中南美洲: "中南美洲", 非洲: "非洲", 大洋洲: "大洋洲" },
+      phases: ["新月", "眉月", "上弦月", "盈凸月", "滿月", "虧凸月", "下弦月", "殘月"],
+      lit: p => `照亮 ${p}%`, at: (label, time) => `${label}（${time}）`, join: "，",
+      rise: "日出", set: "日落", sunUp: "太陽在天空", mrise: "月出", mset: "月落", moonUp: "月亮在天空", moonDown: "夜晚，月亮在地平線下",
+      langBtn: "EN", langAria: "Switch to English",
+      howAdd: "新增城市", howAddText: "搜尋國家或城市名稱",
+      howImport: "一鍵匯入", howImportText: "上傳行程截圖或貼上文字，同一國家、同時區的地點會合併成一個時鐘",
+      howArrange: "調整順序", howArrangeText: "拖曳圖卡右上角的點點",
+      howRemove: "移除城市", howRemoveText: "按圖卡右上角的 ×，誤刪可以按「復原」",
+      importBtn: "一鍵匯入地點", stop: "停止", done: "完成", fromText: "從文字匯入",
+      dropTitle: "選擇圖片", dropHint: "可一次選多張，也可以把圖片拖到這裡，或直接貼上截圖", privacy: "圖片只在這台裝置上辨識，不會上傳。",
+      pasteLabel: "或貼上行程文字", pastePh: "例如：台北✈伊斯坦堡✈布魯塞爾【比利時】",
+      ocrText: "辨識出的文字（可以修改後按「從文字匯入」再比對一次）",
+      ocrEngine: "正在載入文字辨識引擎…", ocrLang: "正在下載中英文字庫（約 4.6 MB，只有第一次比較久）…",
+      ocrReading: (i, n, p) => `正在辨識第 ${i}/${n} 張圖片… ${p}%`,
+      ocrFailed: "文字辨識引擎載入失敗。請確認網路連線後再試，或把文字貼到下方。", ocrFailedPart: "有圖片辨識失敗，以下只比對已完成的部分。",
+      ocrNoText: "圖片中沒有辨識出文字。", impNeedText: "請先貼上文字。",
+      impSum: (a, n) => `找到 ${n} 個地名，新增 ${a} 個時鐘`, impNone: "沒有找到內建資料中的地名。", imported: n => `已匯入 ${n} 個時鐘`,
+      into: "併入 ", st_new: "新增", st_merged: "同時區", st_have: "已在清單", st_multi: "略過", st_multiPlaces: "依地點",
+      multiNote: "跨多個時區，請寫出城市或景點", multiPlacesNote: "跨多個時區，依各地點的時區",
+    },
+    en: {
+      title: "Sunday Tour World Clock", local: "Local", add: "Add city", close: "Close",
+      search: "Search a country or city (e.g. Brazil, Cancún, 台北)", undo: "Undo",
+      removed: n => `Removed ${n}`, added: "Added", cities: "Cities", otherZones: "Other time zones",
+      none: q => `No match for “${q}”. Try a country, a city or a time zone name.`,
+      empty: "No other cities yet besides your local time.",
+      remove: "Remove", removeAria: n => `Remove ${n}`, drag: "Drag to reorder", dragAria: n => `Reorder ${n} (arrow keys work too)`,
+      day: "Day", night: "Night", today: "Today", tomorrow: "Tomorrow", yesterday: "Yesterday", days: n => `${n > 0 ? "+" : ""}${n} days`,
+      same: "same as local", ahead: t => `${t} ahead`, behind: t => `${t} behind`, hm: (h, m) => (h ? h + " h" : "") + (m ? (h ? " " : "") + m + " min" : ""),
+      sep: " · ", date: (i, wd) => `${wd}, ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i.mo - 1]} ${i.d}, ${i.y}`,
+      regions: { 亞洲: "Asia", 歐洲: "Europe", 北美洲: "North America", 中南美洲: "Latin America", 非洲: "Africa", 大洋洲: "Oceania" },
+      phases: ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"],
+      lit: p => `${p}% lit`, at: (label, time) => `${label} (${time})`, join: ", ",
+      rise: "Sunrise", set: "Sunset", sunUp: "Sun is up", mrise: "Moonrise", mset: "Moonset", moonUp: "Moon is up", moonDown: "Night, moon below the horizon",
+      langBtn: "中", langAria: "切換為中文",
+      howAdd: "Add a city", howAddText: "Search by country or city name",
+      howImport: "Import", howImportText: "Upload an itinerary screenshot or paste its text; places in the same country and time zone share one clock",
+      howArrange: "Reorder", howArrangeText: "Drag the dots at a card's top right",
+      howRemove: "Remove", howRemoveText: "Tap × at a card's top right; Undo brings it back",
+      importBtn: "Import places", stop: "Stop", done: "Done", fromText: "Import from text",
+      dropTitle: "Choose images", dropHint: "Pick several at once, drop images here, or paste a screenshot", privacy: "Images are read on this device and never uploaded.",
+      pasteLabel: "Or paste itinerary text", pastePh: "e.g. Taipei ✈ Istanbul ✈ Brussels (Belgium)",
+      ocrText: "Text found in the images (edit it, then choose Import from text to match again)",
+      ocrEngine: "Loading the text reader…", ocrLang: "Downloading Chinese and English text data (about 4.6 MB, first time only)…",
+      ocrReading: (i, n, p) => `Reading image ${i} of ${n}… ${p}%`,
+      ocrFailed: "The text reader didn't load. Check your connection and try again, or paste the text below.", ocrFailedPart: "Some images couldn't be read. Only the finished ones were matched.",
+      ocrNoText: "No text was found in the images.", impNeedText: "Paste some text first.",
+      impSum: (a, n) => `Found ${n} place name${n === 1 ? "" : "s"}, added ${a} clock${a === 1 ? "" : "s"}`, impNone: "No place names from the built-in list were found.", imported: n => `Imported ${n} clock${n === 1 ? "" : "s"}`,
+      into: "Joins ", st_new: "Added", st_merged: "Same time", st_have: "Already listed", st_multi: "Skipped", st_multiPlaces: "By place",
+      multiNote: "Several time zones; name a city or sight", multiPlacesNote: "Several time zones; each place uses its own",
+    },
+  };
+  const L = (k, ...a) => { const v = I18N[lang][k]; return typeof v === "function" ? v(...a) : v; };
+
+  // Display names in the current language.
+  const COUNTRY_EN = { HK: "Hong Kong", MO: "Macao", PS: "Palestine", US: "United States", GB: "United Kingdom", KR: "South Korea", KP: "North Korea", CD: "DR Congo", CG: "Congo", AE: "UAE", SJ: "Svalbard" };
+  const CITY_EN = { "Victoria Seychelles": "Victoria", "San Jose Costa Rica": "San José", "Santa Cruz Bolivia": "Santa Cruz", "Cordoba Argentina": "Córdoba", "Saint-Denis Reunion": "Saint-Denis", "Hamilton Bermuda": "Hamilton", "Stanley Falklands": "Stanley", "St Johns": "St. John's", "Washington DC": "Washington, D.C.", "Sao Paulo": "São Paulo", "Bogota": "Bogotá", "Cancun": "Cancún", "Merida": "Mérida", "Asuncion": "Asunción", "Brasilia": "Brasília", "Belem": "Belém", "Cuiaba": "Cuiabá", "Medellin": "Medellín", "Mazatlan": "Mazatlán", "Ciudad Juarez": "Ciudad Juárez", "Urumqi": "Urumqi (Xinjiang time)", "Zurich": "Zürich", "Krakow": "Kraków", "Reykjavik": "Reykjavík", "Chisinau": "Chișinău", "Nukualofa": "Nukuʻalofa", "Foz do Iguacu": "Foz do Iguaçu", "Fortaleza": "Fortaleza" };
+  const countryName = c => lang === "en" ? (c.cc ? (COUNTRY_EN[c.cc] || countryEn(c.cc) || c.cc) : c.place) : c.country;
+  const cityName = c => {
+    if (lang !== "en") return c.city;
+    if (c.id.startsWith("tz:")) return c.city;
+    const first = c.en.split("/")[0];
+    return CITY_EN[first] || first;
+  };
+  const fullName = c => countryName(c) + L("sep") + cityName(c);
+
+  const strip = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const norm = s => strip(s).replace(/臺/g, "台").replace(/祕/g, "秘").replace(/[\s_\-'’.,()（）\/・]/g, "");
+  const slug = s => strip(s).replace(/[^a-z0-9]/g, "");
+
+  // Older browsers may only know a zone's previous name.
+  const TZ_FALLBACK = { "Europe/Kyiv": "Europe/Kiev", "Asia/Yangon": "Asia/Rangoon", "Asia/Kolkata": "Asia/Calcutta", "Asia/Ho_Chi_Minh": "Asia/Saigon", "Asia/Kathmandu": "Asia/Katmandu", "America/Nuuk": "America/Godthab", "America/Ciudad_Juarez": "America/Denver", "Pacific/Kanton": "Pacific/Enderbury" };
+  const tzOk = new Map();
+  function validTz(tz) {
+    if (!tzOk.has(tz)) { let ok = true; try { new Intl.DateTimeFormat("en", { timeZone: tz }); } catch (e) { ok = false; } tzOk.set(tz, ok); }
+    return tzOk.get(tz);
+  }
+  const useTz = tz => validTz(tz) ? tz : (TZ_FALLBACK[tz] && validTz(TZ_FALLBACK[tz]) ? TZ_FALLBACK[tz] : null);
+
+  function mk(o) {
+    o.country = o.cc ? countryZh(o.cc) : o.place;
+    o.cityKey = norm(o.city + "|" + o.en);
+    o.countryKey = norm(o.country);
+    o.key = norm([o.city, o.en, o.country, o.cc ? countryEn(o.cc) : "", o.cc && dnZh ? dnZh.of(o.cc) : "", COUNTRY_ALIAS[o.cc] || "", o.tz, o.note || ""].join("|"));
+    return o;
+  }
+
+  const ZONES = new Map();
+  ZONE_DATA.trim().split("\n").forEach(l => { const [cc, tz, note, lat, lon] = l.split("|"); ZONES.set(tz, { cc, note: note || "", lat: +lat, lon: +lon }); });
+
+  const CITIES = [];
+  CITY_DATA.trim().split("\n").forEach(l => {
+    const [cc, tz0, city, en, lat, lon] = l.split("|");
+    const tz = useTz(tz0);
+    if (tz) CITIES.push(mk({ id: slug(en.split("/")[0]), cc, tz, city, en, lat: +lat, lon: +lon }));
+  });
+
+  const DEFAULTS = [];
+  const KEY = "sunnytravel.worldclock.cities.v2";
+  const byId = new Map(CITIES.map(c => [c.id, c]));
+
+  let allZones = [];
+  try { allZones = Intl.supportedValuesOf("timeZone"); } catch (e) {}
+
+  function zoneEntry(tz) {
+    const id = "tz:" + tz;
+    if (byId.has(id)) return byId.get(id);
+    const real = useTz(tz);
+    if (!real) return null;
+    const z = ZONES.get(tz);
+    const place = tz.split("/").pop().replace(/_/g, " ");
+    const c = z
+      ? mk({ id, cc: z.cc, tz: real, city: place + (z.note ? "・" + z.note : ""), en: tz, note: z.note, lat: z.lat, lon: z.lon })
+      : mk({ id, cc: "", tz: real, city: tz.replace(/_/g, " "), en: tz, place });
+    byId.set(id, c);
+    return c;
+  }
+
+  function resolve(id) {
+    id = canon(id);
+    if (byId.has(id)) return byId.get(id);
+    if (id.startsWith("tz:")) return zoneEntry(id.slice(3));
+    return null;
+  }
+
+  const NORTH_AMERICA = new Set(["US", "CA", "GL", "BM", "PR"]);
+  const REGIONS = ["亞洲", "歐洲", "北美洲", "中南美洲", "非洲", "大洋洲"];
+  function region(c) {
+    const area = c.tz.split("/")[0];
+    if (NORTH_AMERICA.has(c.cc)) return "北美洲";
+    if (area === "America" || ["EC", "CL", "FK"].includes(c.cc)) return "中南美洲";
+    if (area === "Europe" || ["IS", "PT", "ES"].includes(c.cc)) return "歐洲";
+    if (area === "Africa" || ["MG", "MU", "SC", "RE", "CV"].includes(c.cc)) return "非洲";
+    if (area === "Asia" || c.cc === "MV") return "亞洲";
+    return "大洋洲";
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr.map(canon).filter(id => resolve(id)); }
+    } catch (e) {}
+    return DEFAULTS.slice();
+  }
+  // Browser storage is only a fast first paint; the order is kept in the viewer's private db doc.
+  let cloudRef = null, cloudChain = Promise.resolve();
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(selected)); } catch (e) {}
+    if (!cloudRef) return;
+    const snapshot = selected.slice();
+    cloudChain = cloudChain.then(() => cloudRef.set({ cities: snapshot, updatedAt: Date.now() })).catch(() => {});
+  }
+  async function syncCloud() {
+    try {
+      const use = window.claude && window.claude.use;
+      if (!use) return;
+      const [db, user] = await Promise.all([use("db"), use("user")]);
+      if (!db || !user) return;
+      const uid = await user.id();
+      if (!uid) return;
+      const ref = db.doc("data/users/" + uid + "/sunnytravel-worldclock-v2");
+      const snap = await ref.get();
+      const saved = snap.exists ? (snap.data() || {}).cities : null;
+      cloudRef = ref;
+      if (Array.isArray(saved)) {
+        selected = saved.filter(id => typeof id === "string").map(canon).filter(id => resolve(id));
+        try { localStorage.setItem(KEY, JSON.stringify(selected)); } catch (e) {}
+        render();
+      } else {
+        save();
+      }
+    } catch (e) {}
+  }
+
+  let selected = load();
+
+  // ---- time helpers ----
+  const fmts = new Map();
+  function fmt(tz) {
+    if (!fmts.has(tz)) {
+      fmts.set(tz, {
+        p: new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
+        w: new Intl.DateTimeFormat("zh-TW", { timeZone: tz, weekday: "short" }),
+        we: new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }),
+      });
+    }
+    return fmts.get(tz);
+  }
+  function info(tz, now) {
+    const f = fmt(tz);
+    const o = {};
+    for (const p of f.p.formatToParts(now)) o[p.type] = p.value;
+    const y = +o.year, mo = +o.month, d = +o.day, h = (+o.hour) % 24, mi = +o.minute, s = +o.second;
+    const base = Math.floor(now.getTime() / 1000) * 1000;
+    const offset = Math.round((Date.UTC(y, mo - 1, d, h, mi, s) - base) / 60000);
+    return { y, mo, d, h, mi, s, offset, wd: (lang === "en" ? f.we : f.w).format(now) };
+  }
+  const pad = n => String(n).padStart(2, "0");
+  function gmt(min) {
+    const sign = min < 0 ? "−" : "+";
+    const a = Math.abs(min), h = Math.floor(a / 60), m = a % 60;
+    return "UTC" + sign + h + (m ? ":" + pad(m) : "");
+  }
+  function relText(off, localOff, i, li) {
+    const dayDiff = Math.round((Date.UTC(i.y, i.mo - 1, i.d) - Date.UTC(li.y, li.mo - 1, li.d)) / 86400000);
+    const day = dayDiff === 0 ? L("today") : dayDiff === 1 ? L("tomorrow") : dayDiff === -1 ? L("yesterday") : L("days", dayDiff);
+    const diff = off - localOff;
+    if (diff === 0) return day + L("sep") + L("same");
+    const a = Math.abs(diff), h = Math.floor(a / 60), m = a % 60;
+    return day + L("sep") + (diff > 0 ? L("ahead", L("hm", h, m)) : L("behind", L("hm", h, m)));
+  }
+
+  // ---- sun & moon (SunCalc) ----
+  // Icons only: sun while it is up, sunrise/sunset within an hour of the event,
+  // moon (drawn in its current phase) while it is up, moonrise/moonset within an hour.
+  const RAD = Math.PI / 180, DAY = 864e5, HOUR = 36e5;
+  const Sun = () => window.SunCalc || null;
+  const hmFmt = new Map();
+  function hm(tz, d) {
+    if (!hmFmt.has(tz)) hmFmt.set(tz, new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }));
+    return hmFmt.get(tz).format(d).replace(/^24/, "00");
+  }
+  const valid = d => d instanceof Date && !isNaN(d);
+  const near = (list, now) => list.filter(d => valid(d) && Math.abs(d - now) <= HOUR).sort((a, b) => Math.abs(a - now) - Math.abs(b - now))[0] || null;
+
+  function astro(c, now) {
+    const S = Sun();
+    if (!S || !isFinite(c.lat) || !isFinite(c.lon)) return null;
+    const t = now.getTime();
+    const rises = [], sets = [];
+    for (const k of [-1, 0, 1]) {
+      const x = S.getTimes(new Date(t + k * DAY), c.lat, c.lon);
+      rises.push(x.sunrise); sets.push(x.sunset);
+    }
+    const mRise = [], mSet = [];
+    const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    for (const k of [-1, 0, 1]) {
+      const x = S.getMoonTimes(new Date(base + k * DAY), c.lat, c.lon, true);
+      if (x.rise) mRise.push(x.rise);
+      if (x.set) mSet.push(x.set);
+    }
+    return {
+      sun: { up: S.getPosition(now, c.lat, c.lon).altitude > -0.833 * RAD, rise: near(rises, now), set: near(sets, now) },
+      moon: { up: S.getMoonPosition(now, c.lat, c.lon).altitude > 0.133 * RAD, rise: near(mRise, now), set: near(mSet, now) },
+      ill: S.getMoonIllumination(now),
+      south: c.lat < 0,
+    };
+  }
+
+  function phaseName(ill) {
+    const f = ill.fraction, waxing = ill.phase < 0.5;
+    const p = L("phases");
+    if (f >= 0.97) return p[4];
+    if (f <= 0.03) return p[0];
+    if (waxing) return f < 0.42 ? p[1] : f < 0.58 ? p[2] : p[3];
+    return f > 0.58 ? p[5] : f > 0.42 ? p[6] : p[7];
+  }
+
+  const ray = (cx, cy, a, r1, r2) => { const x = Math.cos(a * RAD), y = Math.sin(a * RAD); return `M${(cx + x * r1).toFixed(2)} ${(cy + y * r1).toFixed(2)}L${(cx + x * r2).toFixed(2)} ${(cy + y * r2).toFixed(2)}`; };
+  const svg = body => `<svg viewBox="0 0 16 16" aria-hidden="true">${body}</svg>`;
+
+  function sunIcon() {
+    const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(8, 8, a, 5, 6.8)).join("");
+    return svg(`<circle cx="8" cy="8" r="3.1" fill="var(--accent)"/><path d="${rays}" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" fill="none"/>`);
+  }
+  // Horizon icons, no arrows: a rising body stands well above the horizon (the sun with a few
+  // short rays); a setting body has sunk below half, with two faint reflection lines under it.
+  const H = 11.6;
+  function horizon(body, rising) {
+    const cover = `<rect x="-2" y="${H}" width="20" height="8" fill="var(--surface)"/>`;
+    const line = `<path d="M1.5 ${H}h13" stroke="currentColor" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"/>`;
+    const water = rising ? "" : `<path d="M5 ${H + 2.2}h6M6.6 ${H + 4}h2.8" stroke="currentColor" stroke-opacity=".35" stroke-width="1.1" stroke-linecap="round"/>`;
+    return svg(body + cover + line + water);
+  }
+  function horizonSun(rising) {
+    const r = 3.7, cy = rising ? H - 1.9 : H + 0.4;
+    const rays = rising ? `<path d="${[-90, -140, -40].map(a => ray(8, cy, a, r + 1.7, r + 3.1)).join("")}" stroke="var(--accent)" stroke-width="1.2" stroke-linecap="round"/>` : "";
+    return horizon(`<circle cx="8" cy="${cy}" r="${r}" fill="var(--accent)"/>${rays}`, rising);
+  }
+  // Lit part of the moon from its illuminated fraction; mirrored south of the equator.
+  function moonShape(cx, cy, r, ill, south) {
+    const f = ill.fraction, waxing = ill.phase < 0.5;
+    let lit = "";
+    if (f > 0.985) lit = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--moon, #d9d6cc)"/>`;
+    else if (f > 0.015) {
+      const rx = (r * Math.abs(1 - 2 * f)).toFixed(2);
+      const s1 = waxing ? 1 : 0, s2 = f < 0.5 ? (waxing ? 0 : 1) : (waxing ? 1 : 0);
+      lit = `<path d="M${cx} ${cy - r}A${r} ${r} 0 0 ${s1} ${cx} ${cy + r}A${rx} ${r} 0 0 ${s2} ${cx} ${cy - r}Z" fill="var(--moon, #d9d6cc)"/>`;
+    }
+    const flip = south ? ` transform="matrix(-1 0 0 1 ${2 * cx} 0)"` : "";
+    return `<g${flip}><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="1"/>${lit}</g>`;
+  }
+  const moonIcon = a => svg(moonShape(8, 8, 6, a.ill, a.south));
+  const horizonMoon = (a, rising) => horizon(moonShape(8, rising ? H - 1.9 : H + 0.4, 4, a.ill, a.south), rising);
+
+  // Within an hour of a rise or set (moon events only at night) the card shows the twilight sky.
+  function paintSky(r, a) {
+    const tw = !!a && (a.sun.rise || a.sun.set || (!a.sun.up && (a.moon.rise || a.moon.set)));
+    r.card.classList.toggle("is-twilight", !!tw);
+  }
+
+  function paintAstro(r, now) {
+    const a = r.ast, tz = r.c.tz;
+    paintSky(r, a);
+    r.astro.hidden = !a;
+    r.dn.hidden = !!a;
+    if (!a) return;
+    const icons = [];
+    const J = L("join"), phase = phaseName(a.ill) + J + L("lit", Math.round(a.ill.fraction * 100));
+    if (a.sun.rise) icons.push(["rise", horizonSun(true), L("at", L("rise"), hm(tz, a.sun.rise))]);
+    else if (a.sun.set) icons.push(["set", horizonSun(false), L("at", L("set"), hm(tz, a.sun.set))]);
+    else if (a.sun.up) icons.push(["sun", sunIcon(), L("sunUp")]);
+    // One icon only: the sun (or sunrise/sunset) takes the slot; the moon shows only at night.
+    else if (a.moon.rise) icons.push(["moon", horizonMoon(a, true), L("at", L("mrise"), hm(tz, a.moon.rise)) + J + phase]);
+    else if (a.moon.set) icons.push(["moon", horizonMoon(a, false), L("at", L("mset"), hm(tz, a.moon.set)) + J + phase]);
+    else if (a.moon.up) icons.push(["moon", moonIcon(a), L("moonUp") + J + phase]);
+    else icons.push(["moon dim", moonIcon(a), L("moonDown") + J + phase]);
+    const html = icons.map(([cls, s, label]) => `<span class="ev ${cls}" role="img" title="${label}" aria-label="${label}">${s}</span>`).join("");
+    if (r.astro._h !== html) { r.astro.innerHTML = html; r.astro._h = html; }
+  }
+
+  // ---- flip digit ----
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function makeFlip() {
+    const el = document.createElement("span");
+    el.className = "flip";
+    el.innerHTML = '<span class="half top"><span></span></span><span class="half bottom"><span></span></span><span class="leaf leaf-top"><span></span></span><span class="leaf leaf-bottom"><span></span></span>';
+    const [top, bottom, lt, lb] = el.querySelectorAll(".half > span, .leaf > span");
+    el._v = null;
+    el._set = (v, animate) => {
+      if (v === el._v) return;
+      const old = el._v;
+      el._v = v;
+      if (!animate || old === null || reduce.matches || document.hidden) {
+        el.classList.remove("go");
+        top.textContent = bottom.textContent = v;
+        return;
+      }
+      top.textContent = v; bottom.textContent = old;
+      lt.textContent = old; lb.textContent = v;
+      el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { bottom.textContent = el._v; el.classList.remove("go"); }, 620);
+    };
+    return el;
+  }
+
+  // ---- cards ----
+  const grid = document.getElementById("grid");
+  const cards = new Map();
+
+  function buildCard(c) {
+    const card = document.createElement("article");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="place"><div class="country"><span class="name"></span></div><div class="city"></div></div>
+        <div class="meta"><div class="offset"></div><div class="rel"></div></div>
+      </div>
+      <button class="grip" type="button"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg></button>
+      <button class="remove" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <div class="clock" role="timer" aria-live="off"></div>
+      <div class="date"><span class="ymd"></span><span class="dn"><i></i><span></span></span><span class="astro" hidden></span></div>`;
+    card.querySelector(".country .name").textContent = countryName(c);
+    card.querySelector(".city").textContent = cityName(c) === countryName(c) ? c.tz.replace(/_/g, " ") : cityName(c);
+    card.querySelector(".place").title = countryName(c) + L("sep") + card.querySelector(".city").textContent;
+    const rm = card.querySelector(".remove");
+    rm.setAttribute("aria-label", L("removeAria", fullName(c)));
+    rm.title = L("remove");
+    rm.addEventListener("click", () => removeCity(c.id));
+    card.dataset.id = c.id;
+    const grip = card.querySelector(".grip");
+    grip.setAttribute("aria-label", L("dragAria", countryName(c)));
+    grip.title = L("drag");
+    grip.addEventListener("pointerdown", e => startDrag(e, card, grip));
+    grip.addEventListener("keydown", e => keyMove(e, card, grip));
+
+    const clock = card.querySelector(".clock");
+    const flips = [];
+    ["h", "m", "s"].forEach((k, idx) => {
+      if (idx) { const col = document.createElement("span"); col.className = "colon"; col.setAttribute("aria-hidden", "true"); clock.appendChild(col); }
+      const pair = document.createElement("span");
+      pair.className = "pair" + (k === "s" ? " sec" : "");
+      pair.setAttribute("aria-hidden", "true");
+      const a = makeFlip(), b = makeFlip();
+      pair.append(a, b); clock.appendChild(pair); flips.push(a, b);
+    });
+    return {
+      card, flips, clock,
+      offset: card.querySelector(".offset"),
+      rel: card.querySelector(".rel"),
+      ymd: card.querySelector(".ymd"),
+      dn: card.querySelector(".dn"),
+      dnText: card.querySelector(".dn > span"),
+      astro: card.querySelector(".astro"),
+      astroMin: -1, ast: null,
+      c,
+    };
+  }
+
+  function render() {
+    // Local time always first; the rest keep the user's order (skipping any entry in the same time zone).
+    const order = [localId, ...selected.filter(id => { const c = resolve(id); return c && id !== localId; })];
+    const keep = new Set(order);
+    for (const [id, r] of cards) if (!keep.has(id)) { r.card.remove(); cards.delete(id); }
+    grid.querySelector(".empty")?.remove();
+    order.forEach(id => {
+      let r = cards.get(id);
+      if (!r) { const c = resolve(id); if (!c) return; r = buildCard(c); cards.set(id, r); }
+      r.card.classList.toggle("is-local", id === localId);
+      grid.appendChild(r.card);
+    });
+    if (order.length <= 1) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML = '<div></div><button class="btn" type="button"></button>';
+      e.firstChild.textContent = L("empty");
+      e.querySelector("button").textContent = L("add");
+      e.querySelector("button").addEventListener("click", openPicker);
+      grid.appendChild(e);
+    }
+    tick(false);
+  }
+
+  const localInfo = document.getElementById("localInfo");
+  const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } })();
+  const localAlias = Object.keys(TZ_FALLBACK).find(k => TZ_FALLBACK[k] === localTz);
+  const localCity = CITIES.find(c => c.tz === localTz || c.tz === localAlias) || resolve("tz:" + localTz) || resolve("tz:UTC");
+  const localId = localCity.id;
+  if (!byId.has(localId)) byId.set(localId, localCity);
+
+  function tick(animate = true) {
+    const now = new Date();
+    const li = info(localTz, now);
+    localInfo.textContent = `${L("local")} ${localTz.replace(/_/g, " ")} · ${gmt(li.offset)}`;
+    for (const r of cards.values()) {
+      const i = info(r.c.tz, now);
+      const digits = pad(i.h) + pad(i.mi) + pad(i.s);
+      r.flips.forEach((f, k) => f._set(digits[k], animate));
+      r.clock.setAttribute("aria-label", `${countryName(r.c)} ${pad(i.h)}:${pad(i.mi)}:${pad(i.s)}`);
+      r.offset.textContent = gmt(i.offset);
+      r.rel.textContent = relText(i.offset, li.offset, i, li);
+      r.ymd.textContent = L("date", i, i.wd);
+      const minute = Math.floor(now.getTime() / 6e4);
+      if (r.astroMin !== minute) { r.astroMin = minute; r.ast = astro(r.c, now); paintAstro(r, now); }
+      const day = r.ast ? r.ast.sun.up : (i.h >= 6 && i.h < 18);
+      r.dn.classList.toggle("night", !day);
+      r.card.classList.toggle("is-day", day);
+      r.card.classList.toggle("is-night", !day);
+      r.dnText.textContent = day ? L("day") : L("night");
+    }
+  }
+  function loop() { tick(true); setTimeout(loop, 1000 - (Date.now() % 1000) + 8); }
+
+  // ---- drag to reorder ----
+  function flip(mutate) {
+    const els = [...grid.querySelectorAll(".card")];
+    const first = new Map(els.map(el => [el, el.getBoundingClientRect()]));
+    mutate();
+    if (reduce.matches) return;
+    els.forEach(el => {
+      const f = first.get(el), l = el.getBoundingClientRect();
+      const dx = f.left - l.left, dy = f.top - l.top;
+      if (dx || dy) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 180, easing: "ease-out" });
+    });
+  }
+  function commitOrder() {
+    const dom = [...grid.querySelectorAll(".card")].map(el => el.dataset.id).filter(id => id !== localId);
+    let k = 0;
+    // keep entries hidden behind the local card (same time zone) in their slots
+    selected = selected.map(id => { const c = resolve(id); return id === localId ? id : dom[k++]; }).filter(Boolean);
+    while (k < dom.length) selected.push(dom[k++]);
+    save();
+  }
+  function startDrag(e, card, grip) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+    card.classList.add("dragging");
+    document.body.classList.add("is-dragging");
+    const move = ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      if (ev.clientY < 70) window.scrollBy(0, -14);
+      else if (ev.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".card");
+      if (!el || el === card || el.classList.contains("is-local") || el.getAnimations().length) return;
+      const after = !!(card.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      flip(() => after ? el.after(card) : el.before(card));
+    };
+    const end = ev => {
+      if (ev.pointerId !== e.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      card.classList.remove("dragging");
+      document.body.classList.remove("is-dragging");
+      commitOrder();
+    };
+    // listen on window: moving the card in the DOM drops pointer capture
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+  function keyMove(e, card, grip) {
+    const back = e.key === "ArrowUp" || e.key === "ArrowLeft";
+    const fwd = e.key === "ArrowDown" || e.key === "ArrowRight";
+    if (!back && !fwd) return;
+    e.preventDefault();
+    const sib = back ? card.previousElementSibling : card.nextElementSibling;
+    if (!sib || !sib.classList.contains("card") || sib.classList.contains("is-local")) return;
+    flip(() => back ? sib.before(card) : sib.after(card));
+    commitOrder();
+    grip.focus();
+  }
+
+  // ---- remove + undo ----
+  const toast = document.getElementById("toast"), toastMsg = document.getElementById("toastMsg");
+  let undo = null, toastTimer;
+  function removeCity(id) {
+    const idx = selected.indexOf(id);
+    if (idx < 0) return;
+    const c = resolve(id);
+    selected.splice(idx, 1); save(); render();
+    undo = { id, idx };
+    toastMsg.textContent = L("removed", fullName(c));
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; undo = null; }, 5000);
+  }
+  document.getElementById("undoBtn").addEventListener("click", () => {
+    if (!undo) return;
+    if (undo.prev) selected = undo.prev.slice();
+    else if (!selected.includes(undo.id)) selected.splice(Math.min(undo.idx, selected.length), 0, undo.id);
+    undo = null; toast.hidden = true; save(); render();
+  });
+
+  // ---- import places from images or pasted text ----
+  // Text recognition (Tesseract.js) runs in this browser; the images are never uploaded.
+  // Found names are matched against this page's tzdata lists, then grouped per country by
+  // how the clock actually runs (same UTC offsets and DST rules for the coming year).
+
+  // Travel names that are not cities in CITY_DATA: attractions, regions, other spellings.
+  // country|tzdata zone|中文名（可多個）|English names
+  const GAZ_DATA = `
+TW|Asia/Taipei|桃園/新竹/嘉義/台南/花蓮/台東/宜蘭/基隆/澎湖/金門/馬祖/日月潭/阿里山/九份/墾丁|Taoyuan/Hsinchu/Chiayi/Tainan/Hualien/Taitung/Yilan/Keelung/Penghu/Kinmen/Matsu/Sun Moon Lake/Alishan/Jiufen/Kenting
+JP|Asia/Tokyo|北海道/函館/小樽/富良野/美瑛/旭川/登別/洞爺湖/名古屋/神戶/奈良/廣島/宮島/箱根/富士山/河口湖/輕井澤/金澤/白川鄉/飛驒高山/仙台/長崎/熊本/鹿兒島/別府/由布院/湯布院/立山黑部/橫濱/鎌倉/石垣島/宮古島/高松/岡山/青森/秋田/成田/羽田/關西機場/伊豆/草津/姬路|Hokkaido/Hakodate/Otaru/Furano/Biei/Asahikawa/Noboribetsu/Nagoya/Kobe/Nara/Hiroshima/Miyajima/Hakone/Mount Fuji/Mt Fuji/Kawaguchiko/Karuizawa/Kanazawa/Shirakawa-go/Takayama/Sendai/Nagasaki/Kumamoto/Kagoshima/Beppu/Yufuin/Yokohama/Kamakura/Ishigaki/Miyakojima/Shikoku/Takamatsu/Okayama/Aomori/Akita/Narita/Haneda/Himeji
+KR|Asia/Seoul|濟州/濟州島/仁川/大邱/慶州/雪嶽山/全州/春川/南怡島/漢城|Jeju/Incheon/Daegu/Gyeongju/Seoraksan/Jeonju/Chuncheon/Nami Island
+CN|Asia/Shanghai|九寨溝/張家界/桂林/陽朔/黃山/麗江/大理古城/洱海/昆明/拉薩/青島/哈爾濱/南京/蘇州/三亞/天津/敦煌/洛陽/鄭州/長沙/福州/寧波/內蒙古/西藏/雲南/海南島|Jiuzhaigou/Zhangjiajie/Guilin/Yangshuo/Huangshan/Lijiang/Kunming/Lhasa/Qingdao/Harbin/Nanjing/Suzhou/Sanya/Tianjin/Dunhuang/Luoyang
+TH|Asia/Bangkok|芭達雅/芭堤雅/蘇美島/喀比/甲米/華欣/清萊/皮皮島/普吉/布吉/大城府/阿瑜陀耶/桂河/北碧|Pattaya/Koh Samui/Krabi/Hua Hin/Chiang Rai/Phi Phi/Phuket/Ayutthaya/Kanchanaburi
+VN|Asia/Ho_Chi_Minh|下龍灣/會安/順化/芽莊/富國島/大叻/沙壩/西貢/寧平|Ha Long/Halong Bay/Hoi An/Hue/Nha Trang/Phu Quoc/Da Lat/Dalat/Sapa/Saigon/Ninh Binh
+KH|Asia/Phnom_Penh|吳哥窟/吳哥|Angkor Wat/Angkor
+LA|Asia/Vientiane|琅勃拉邦/龍坡邦|Luang Prabang/Vang Vieng
+MM|Asia/Yangon|蒲甘/曼德勒|Bagan/Mandalay
+MY|Asia/Kuala_Lumpur|馬六甲/蘭卡威/怡保/金馬崙/新山/雲頂|Malacca/Melaka/Langkawi/Ipoh/Cameron Highlands/Johor Bahru/Genting
+MY|Asia/Kuching|沙巴/仙本那/詩巫|Sabah/Sarawak/Semporna/Kota Kinabalu/Sibu/Miri/Kinabalu
+ID|Asia/Makassar|巴厘島/巴里島/龍目島/科莫多/納閩巴霍/努沙佩尼達|Bali/Lombok/Komodo/Labuan Bajo/Nusa Penida/Ubud/Denpasar
+ID|Asia/Jakarta|日惹/婆羅浮屠/民丹島/峇淡島/巴淡島/萬隆|Yogyakarta/Borobudur/Bintan/Batam/Bandung
+ID|Asia/Jayapura|拉賈安帕/四王群島|Raja Ampat
+PH|Asia/Manila|長灘島/巴拉望/愛妮島/薄荷島/公主港/碧瑤|Boracay/Palawan/El Nido/Bohol/Puerto Princesa/Baguio
+SG|Asia/Singapore|聖淘沙/濱海灣|Sentosa/Marina Bay
+IN|Asia/Kolkata|阿格拉/泰姬瑪哈陵/齋浦爾/瓦拉納西/果亞/拉達克/列城|Agra/Taj Mahal/Jaipur/Varanasi/Goa/Ladakh/Leh
+LK|Asia/Colombo|康提/錫吉里亞|Kandy/Sigiriya/Galle
+NP|Asia/Kathmandu|博卡拉/奇旺|Pokhara/Chitwan
+BT|Asia/Thimphu|帕羅/普納卡|Paro/Punakha
+UZ|Asia/Samarkand|布哈拉/希瓦|Bukhara/Khiva
+AE|Asia/Dubai|沙迦/哈里發塔|Sharjah/Burj Khalifa
+JO|Asia/Amman|佩特拉/瓦地倫/亞喀巴|Petra/Wadi Rum/Aqaba
+IL|Asia/Jerusalem|海法/加利利/拿撒勒|Haifa/Galilee/Nazareth
+PS|Asia/Hebron|伯利恆|Bethlehem
+EG|Africa/Cairo|路克索/亞斯文/阿布辛貝/赫爾格達/吉薩/亞歷山卓|Luxor/Aswan/Abu Simbel/Hurghada/Giza/Alexandria
+MA|Africa/Casablanca|菲斯/費茲/舍夫沙萬/藍色山城/梅祖卡/拉巴特/丹吉爾|Fes/Fez/Chefchaouen/Merzouga/Rabat/Tangier
+TR|Europe/Istanbul|卡帕多奇亞/卡帕多起亞/棉堡/以弗所/番紅花城/安塔利亞/伊茲密爾/特洛伊/孔亞/費特希耶/庫薩達西/格雷梅|Cappadocia/Pamukkale/Ephesus/Safranbolu/Antalya/Izmir/Troy/Konya/Fethiye/Kusadasi/Goreme
+GR|Europe/Athens|聖托里尼/米克諾斯/克里特/梅特歐拉/德爾菲/奧林匹亞/羅德島/塞薩洛尼基|Santorini/Mykonos/Crete/Meteora/Delphi/Olympia/Rhodes/Thessaloniki
+NL|Europe/Amsterdam|鹿特丹/海牙/小孩堤防/小孩堤坊/庫肯霍夫/羊角村/贊斯堡/風車村/烏特勒支/台夫特/馬斯垂克/史基浦/埃因霍溫/羊角村|Rotterdam/The Hague/Den Haag/Kinderdijk/Keukenhof/Giethoorn/Zaanse Schans/Utrecht/Delft/Maastricht/Schiphol/Eindhoven
+BE|Europe/Brussels|布魯日/根特/安特衛普/列日/迪南|Bruges/Brugge/Ghent/Gent/Antwerp/Liege/Dinant
+LU|Europe/Luxembourg|維安登|Vianden
+IS|Atlantic/Reykjavik|藍湖/塞爾福斯/維克/塞里雅蘭瀑布/斯科加爾瀑布/斯科加瀑布/斯卡夫塔費德/斯卡夫塔費特/傑古沙龍/黃金瀑布/辛格維利爾/阿克雷里/米湖/胡薩維克/斯奈山半島/索爾黑馬/米達爾斯|Blue Lagoon/Selfoss/Vik/Seljalandsfoss/Skogafoss/Skaftafell/Jokulsarlon/Gullfoss/Thingvellir/Akureyri/Myvatn/Husavik/Hofn/Snaefellsnes/Solheimajokull
+GB|Europe/London|利物浦/牛津/劍橋/巨石陣/溫莎/約克/格拉斯哥/尼斯湖/英國湖區/貝爾法斯特/卡地夫/科茲窩/伯明罕/巴斯古城|Liverpool/Oxford/Cambridge/Stonehenge/Windsor/York/Glasgow/Loch Ness/Lake District/Belfast/Cardiff/Cotswolds/Birmingham
+IE|Europe/Dublin|莫赫懸崖/高威/戈爾韋|Cliffs of Moher/Galway
+FR|Europe/Paris|凡爾賽/聖米歇爾山/羅浮宮/艾菲爾鐵塔/普羅旺斯/亞維儂/馬賽/坎城/波爾多/史特拉斯堡/科爾馬/霞慕尼/羅亞爾河/科西嘉/安錫/盧爾德|Versailles/Mont Saint-Michel/Louvre/Eiffel Tower/Provence/Avignon/Marseille/Cannes/Bordeaux/Strasbourg/Colmar/Chamonix/Loire/Corsica/Annecy/Lourdes
+MC|Europe/Monaco|蒙地卡羅|Monte Carlo
+IT|Europe/Rome|拿坡里/那不勒斯/龐貝/卡布里/阿瑪菲/蘇連多/比薩斜塔/西恩納/五漁村/多洛米蒂/西西里/巴勒摩/陶爾米納/維洛納/科摩湖/波隆那/都靈/熱那亞/托斯卡尼/阿西西/薩丁尼亞/馬泰拉/巴里/貝加莫|Naples/Napoli/Pompeii/Capri/Amalfi/Sorrento/Pisa/Siena/Cinque Terre/Dolomites/Sicily/Palermo/Taormina/Verona/Lake Como/Bologna/Turin/Torino/Genoa/Tuscany/Assisi/Sardinia/Matera/Bari/Bergamo
+CH|Europe/Zurich|盧森/琉森/少女峰/因特拉肯/茵特拉根/策馬特/采爾馬特/馬特洪峰/伯恩/巴塞爾/洛桑/蒙特勒/聖摩里茲/格林德瓦/鐵力士山/盧加諾|Lucerne/Luzern/Jungfrau/Jungfraujoch/Interlaken/Zermatt/Matterhorn/Bern/Basel/Lausanne/Montreux/St Moritz/Grindelwald/Titlis/Lugano
+AT|Europe/Vienna|薩爾斯堡/哈修塔特/哈爾施塔特/因斯布魯克/格拉茲|Salzburg/Hallstatt/Innsbruck/Graz
+DE|Europe/Berlin|新天鵝堡/海德堡/科隆/羅騰堡/紐倫堡/德勒斯登/斯圖加特/菲森/萊比錫/波茨坦|Neuschwanstein/Heidelberg/Cologne/Koln/Rothenburg/Nuremberg/Dresden/Stuttgart/Fussen/Leipzig/Potsdam
+CZ|Europe/Prague|庫倫洛夫/克魯姆洛夫/卡羅維瓦利/布爾諾/庫特納霍拉|Cesky Krumlov/Karlovy Vary/Brno/Kutna Hora
+HR|Europe/Zagreb|十六湖/普利特維采/斯普利特/札達爾|Plitvice/Split/Zadar
+SI|Europe/Ljubljana|布萊德湖/布萊德|Lake Bled/Bled
+ME|Europe/Podgorica|科托|Kotor
+ES|Europe/Madrid|格拉納達/哥多華/塞哥維亞/托雷多/瓦倫西亞/畢爾包/隆達/米哈斯/馬拉加/聖家堂/伊比薩/馬約卡/阿蘭布拉宮|Granada/Cordoba/Segovia/Toledo/Valencia/Bilbao/Ronda/Mijas/Malaga/Sagrada Familia/Ibiza/Mallorca/Alhambra
+ES|Atlantic/Canary|特內里費/大加那利/蘭薩羅特|Tenerife/Gran Canaria/Lanzarote
+PT|Europe/Lisbon|辛特拉/羅卡角/法蒂瑪/科英布拉/阿爾加維|Sintra/Cabo da Roca/Fatima/Coimbra/Algarve
+PT|Atlantic/Madeira|豐沙爾|Funchal
+PT|Atlantic/Azores|蓬塔德爾加達|Ponta Delgada
+NO|Europe/Oslo|卑爾根/松恩峽灣/蓋倫格/特羅姆瑟/羅弗敦/弗洛姆/斯塔萬格/聖壇岩|Bergen/Sognefjord/Geiranger/Tromso/Lofoten/Flam/Stavanger/Preikestolen
+SJ|Arctic/Longyearbyen|斯瓦巴/朗伊爾城|Svalbard/Longyearbyen
+SE|Europe/Stockholm|基律納/阿比斯庫/哥德堡|Kiruna/Abisko/Gothenburg
+FI|Europe/Helsinki|羅瓦涅米/聖誕老人村/薩利塞爾卡/圖爾庫|Rovaniemi/Santa Claus Village/Saariselka/Turku
+DK|Europe/Copenhagen|歐登塞|Odense
+RU|Europe/Moscow|摩爾曼斯克|Murmansk
+RU|Asia/Irkutsk|貝加爾湖|Lake Baikal/Baikal
+KE|Africa/Nairobi|馬賽馬拉/安博塞利/納庫魯|Masai Mara/Maasai Mara/Amboseli/Nakuru
+TZ|Africa/Dar_es_Salaam|塞倫蓋蒂/恩戈羅恩戈羅/吉力馬札羅/阿魯沙/桑吉巴|Serengeti/Ngorongoro/Kilimanjaro/Arusha/Zanzibar
+ZA|Africa/Johannesburg|克魯格/好望角/德班|Kruger/Cape of Good Hope/Durban
+ZW|Africa/Harare|維多利亞瀑布|Victoria Falls
+BW|Africa/Gaborone|喬貝/奧卡萬戈|Chobe/Okavango
+NA|Africa/Windhoek|蘇蘇斯黎/鯨灣|Sossusvlei/Walvis Bay
+AU|Australia/Brisbane|凱恩斯/大堡礁/陽光海岸/摩頓島|Cairns/Great Barrier Reef/Sunshine Coast/Moreton Island
+AU|Australia/Lindeman|聖靈群島|Whitsundays/Whitsunday
+AU|Australia/Darwin|烏魯魯/艾爾斯岩/愛麗絲泉/卡卡杜|Uluru/Ayers Rock/Alice Springs/Kakadu
+AU|Australia/Melbourne|大洋路/菲利普島|Great Ocean Road/Phillip Island
+AU|Australia/Sydney|藍山/獵人谷|Blue Mountains/Hunter Valley
+AU|Australia/Adelaide|巴羅莎/袋鼠島|Barossa/Kangaroo Island
+AU|Australia/Perth|尖峰石陣/布魯姆/羅特尼斯島|Pinnacles/Broome/Rottnest
+NZ|Pacific/Auckland|皇后鎮/米佛峽灣/羅托魯瓦/蒂卡波/庫克山/但尼丁/瓦納卡/福斯冰河/法蘭士約瑟夫/懷托摩/霍比屯/陶波/凱庫拉|Queenstown/Milford Sound/Rotorua/Tekapo/Mount Cook/Dunedin/Wanaka/Fox Glacier/Franz Josef/Waitomo/Hobbiton/Taupo/Kaikoura
+PF|Pacific/Tahiti|波拉波拉/茉莉亞|Bora Bora/Moorea
+MP|Pacific/Saipan|塞班/天寧|Saipan/Tinian
+US|Pacific/Honolulu|茂宜/可愛島/歐胡/威基基|Maui/Kauai/Oahu/Waikiki
+US|America/Phoenix|大峽谷國家公園/科羅拉多大峽谷/塞多納/羚羊峽谷/馬蹄灣|Grand Canyon/Sedona/Antelope Canyon/Horseshoe Bend
+US|America/Denver|黃石公園/黃石國家公園/大提頓/拱門國家公園/布萊斯峽谷/錫安國家公園/紀念碑谷/聖塔菲|Yellowstone/Grand Teton/Arches/Bryce Canyon/Zion/Monument Valley/Santa Fe
+US|America/Los_Angeles|優勝美地/死亡谷/太浩湖/納帕/大索爾/聖塔芭芭拉/好萊塢|Yosemite/Death Valley/Lake Tahoe/Napa/Big Sur/Santa Barbara/Hollywood
+US|America/New_York|基韋斯特/大煙山|Key West/Great Smoky
+US|America/Chicago|曼菲斯/孟菲斯/納許維爾/聖安東尼奧|Memphis/Nashville/San Antonio
+US|America/Anchorage|費爾班克斯/迪納利/德納利|Fairbanks/Denali
+US|America/Juneau|朱諾/史凱威|Juneau/Skagway
+CA|America/Edmonton|班夫/露易絲湖/傑士伯/賈斯珀/冰原大道/黃刀鎮/黃刀|Banff/Lake Louise/Jasper/Icefields Parkway/Yellowknife
+CA|America/Vancouver|惠斯勒/基隆拿/維多利亞|Whistler/Kelowna/Victoria
+CA|America/Toronto|尼加拉瀑布/尼加拉大瀑布/魁北克|Niagara Falls/Niagara/Quebec
+US|America/New_York|尼加拉瀑布/喬治亞州/佐治亞州|Niagara Falls
+CA|America/Halifax|愛德華王子島|Prince Edward Island
+MX|America/Cancun|圖倫/普拉亞德爾卡門/女人島/科蘇梅爾|Isla Mujeres/Cozumel
+MX|America/Merida|奇琴伊察/契琴伊薩|Chichen Itza
+MX|America/Mexico_City|瓜納華托/聖米格爾德阿連德|Guanajuato/San Miguel de Allende
+PE|America/Lima|聖谷/普諾/納斯卡/阿雷基帕|Sacred Valley/Puno/Nazca/Arequipa
+BO|America/La_Paz|烏尤尼|Uyuni
+CL|America/Punta_Arenas|百內/百內國家公園/納塔雷斯港/彭塔阿雷納斯|Torres del Paine/Puerto Natales
+CL|America/Santiago|阿塔卡瑪/聖佩德羅德阿塔卡馬/瓦爾帕萊索/瓦爾帕萊索/比尼亞德爾馬/蒙特港/普孔/卡拉馬|Atacama/San Pedro de Atacama/Valparaiso/Vina del Mar/Puerto Montt/Pucon/Calama
+AR|America/Argentina/Rio_Gallegos|加拉法提/卡拉法特/摩雷諾冰川/莫雷諾冰川/摩雷諾大冰川/佩里托莫雷諾/埃爾查爾滕|El Calafate/Calafate/Perito Moreno/Moreno Glacier/El Chalten
+AR|America/Argentina/Ushuaia|烏蘇懷亞/火地島/比格爾海峽|Tierra del Fuego/Beagle Channel
+AR|America/Argentina/Salta|巴里洛切|Bariloche
+AR|America/Argentina/Cordoba|伊瓜蘇|Puerto Iguazu
+AR|America/Argentina/Catamarca|瓦爾德斯半島|Peninsula Valdes
+BR|America/Sao_Paulo|里約/伊瓜蘇瀑布/伊瓜蘇國家公園/弗洛里亞諾波利斯|Iguazu Falls/Iguacu Falls/Florianopolis
+BR|America/Cuiaba|潘塔納爾|Pantanal
+BR|America/Campo_Grande|博尼圖|Bonito
+EC|Pacific/Galapagos|加拉巴哥/加拉帕戈斯|Galapagos
+CO|America/Bogota|卡塔赫納|Cartagena
+`;
+
+  const STOP_KEYS = new Set(["patagonia", "巴塔哥尼亞", "amazon", "amazonas", "亞馬遜", "center", "easter", "knox", "troll", "casey", "davis", "palmer", "mawson", "rothera", "syowa", "vostok", "macquarie", "mcmurdo", "georgia", "jordan", "chad"]);
+  const COUNTRY_EXTRA = {
+    TW: "台灣/中華民國/Taiwan", KR: "南韓/大韓民國/Korea", KP: "北韓", AE: "阿聯/阿聯酋/阿拉伯聯合大公/UAE/Emirates",
+    GB: "英國/英格蘭/蘇格蘭/威爾斯/大不列顛/UK/England/Scotland/Wales/Britain", US: "美國/美利堅/USA/America", NL: "荷蘭/尼德蘭/Holland/Netherlands",
+    TH: "泰國/泰王國", AU: "澳洲/澳大利亞", NZ: "紐西蘭/新西蘭", MV: "馬爾地夫/馬爾代夫", TR: "土耳其/Turkey/Turkiye", CZ: "捷克/Czechia/Czech Republic",
+    VN: "越南", MM: "緬甸/Burma", CN: "中國/中國大陸", PH: "菲律賓", ES: "西班牙", IT: "義大利/意大利", CH: "瑞士", DE: "德國", FR: "法國",
+    BE: "比利時", IS: "冰島", PE: "秘魯", CR: "哥斯大黎加", KH: "柬埔寨", LA: "寮國", ID: "印尼/印度尼西亞",
+  };
+
+  const CJK = /[㐀-鿿豈-﫿]/;
+  const CHAR_MAP = { "臺": "台", "祕": "秘", "峇": "巴" };
+  function nc(c) {
+    if (CHAR_MAP[c]) return CHAR_MAP[c];
+    const x = c.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    if (x.length === 1) return x;
+    const y = c.toLowerCase();
+    return y.length === 1 ? y : c;
+  }
+  // One output character per input character, so match positions point back into the original text.
+  const normText = s => { let o = ""; for (let i = 0; i < s.length; i++) o += nc(s[i]); return o; };
+  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const KIND_RANK = { city: 0, place: 1, country: 2 };
+
+  let DICT = null, zonesByCc = null;
+  function addKey(raw, cand) {
+    let k = normText(String(raw)).trim();
+    const cjk = CJK.test(k);
+    k = cjk ? k.replace(/[\s·・.\-()（）]/g, "") : k.replace(/[^a-z0-9]+/g, " ").trim();
+    if (!k || STOP_KEYS.has(k) || (cjk ? k.length < 2 : k.replace(/ /g, "").length < 3)) return;
+    if (!DICT.has(k)) DICT.set(k, { k, cjk, cands: [], re: null });
+    const d = DICT.get(k);
+    if (!d.cands.some(c => c.kind === cand.kind && c.cc === cand.cc && c.tz === cand.tz && c.city === cand.city)) d.cands.push(cand);
+  }
+  function buildDict() {
+    if (DICT) return;
+    DICT = new Map(); zonesByCc = new Map();
+    const noParen = s => s.replace(/（[^）]*）|\([^)]*\)/g, "");
+    CITIES.forEach(c => {
+      const cand = { kind: "city", cc: c.cc, tz: c.tz, city: c, pri: 0 };
+      addKey(c.city, cand);
+      if (noParen(c.city) !== c.city) addKey(noParen(c.city), { ...cand, pri: 2 });
+      c.en.split("/").forEach(n => addKey(n, cand));
+    });
+    GAZ_DATA.trim().split("\n").forEach(l => {
+      const [cc, tz0, zh, en] = l.split("|");
+      const tz = useTz(tz0);
+      if (!tz) return;
+      const cand = { kind: "place", cc, tz, city: null, pri: 1 };
+      (zh + "/" + (en || "")).split("/").forEach(n => n && addKey(n, cand));
+    });
+    for (const [tz0, z] of ZONES) {
+      if (z.cc === "AQ" || z.cc === "UM") continue;
+      const tz = useTz(tz0);
+      if (!tz) continue;
+      if (!zonesByCc.has(z.cc)) zonesByCc.set(z.cc, []);
+      zonesByCc.get(z.cc).push(tz);
+      if (/Indiana|Kentucky|North_Dakota/.test(tz0)) continue;
+      addKey(tz0.split("/").pop().replace(/_/g, " "), { kind: "place", cc: z.cc, tz, city: null, pri: 3 });
+    }
+    for (const cc of zonesByCc.keys()) {
+      const cand = { kind: "country", cc, tz: null, city: null, pri: 0 };
+      [countryZh(cc), dnZh && dnZh.of(cc), countryEn(cc), COUNTRY_EN[cc], ...(COUNTRY_EXTRA[cc] || "").split("/")]
+        .forEach(n => n && n !== cc && addKey(n, cand));
+    }
+  }
+  function keyRe(d) {
+    if (!d.re) d.re = d.cjk
+      ? new RegExp([...d.k].map(escRe).join("\\s*"), "g")
+      : new RegExp("(?<![a-z0-9])" + d.k.split(" ").map(escRe).join("[^a-z0-9\\n]{1,3}") + "(?![a-z0-9])", "g");
+    return d.re;
+  }
+  const candOrder = (a, b) => a.pri - b.pri || KIND_RANK[a.kind] - KIND_RANK[b.kind];
+
+  // Every known place name in the text, in reading order, each resolved to one candidate.
+  function findPlaces(text) {
+    buildDict();
+    const nt = normText(text);
+    const chars = new Set(nt);
+    const spans = new Map();
+    for (const d of DICT.values()) {
+      if (!chars.has(d.k[0])) continue;
+      const re = keyRe(d);
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(nt))) {
+        const s = m.index, e = s + m[0].length;
+        if (!d.cjk && !/\p{Lu}/u.test(text[s])) continue; // English names count only when capitalised
+        const id = s + ":" + e;
+        if (!spans.has(id)) spans.set(id, { s, e, cands: [] });
+        const sp = spans.get(id);
+        d.cands.forEach(c => { if (!sp.cands.includes(c)) sp.cands.push(c); });
+      }
+    }
+    // Where names overlap, the longest one wins (威尼斯 over 尼斯, 利馬索 over 利馬).
+    const kept = [];
+    [...spans.values()].sort((a, b) => (b.e - b.s) - (a.e - a.s) || a.s - b.s)
+      .forEach(m => { if (!kept.some(k => m.s < k.e && k.s < m.e)) kept.push(m); });
+    kept.sort((a, b) => a.s - b.s);
+    // Names shared by places in different countries follow the countries the text is about.
+    const ctx = new Set();
+    kept.forEach(m => { const ccs = new Set(m.cands.map(c => c.cc)); if (ccs.size === 1) ctx.add(m.cands[0].cc); });
+    return kept.map((m, i) => {
+      const cs = m.cands.slice().sort(candOrder);
+      let pick = cs[0];
+      if (new Set(cs.map(c => c.cc)).size > 1) {
+        const prev = kept[i - 1];
+        const near = prev && prev.cands.every(c => c.kind === "country") && nt.slice(prev.e, m.s).replace(/\s/g, "").length <= 1 ? prev.cands[0].cc : null;
+        pick = (near && cs.find(c => c.cc === near)) || cs.find(c => ctx.has(c.cc)) || cs[0];
+      } else {
+        // same country: a city or place beats the country of the same name (新加坡, 香港)
+        pick = cs.find(c => c.kind !== "country") || cs[0];
+      }
+      const raw = text.slice(m.s, m.e);
+      return { s: m.s, text: CJK.test(raw) ? raw.replace(/\s+/g, "") : raw.replace(/\s+/g, " "), c: pick };
+    });
+  }
+
+  // How a zone's clock runs from today for a year (UTC offset every 6 hours).
+  const sigCache = new Map();
+  const sigStart = Math.floor(Date.now() / 864e5) * 864e5;
+  function sig(tz) {
+    if (!sigCache.has(tz)) {
+      const f = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" });
+      const out = [];
+      for (let h = 0; h < 366 * 24; h += 6) {
+        const t = sigStart + h * 36e5, p = {};
+        f.formatToParts(new Date(t)).forEach(x => { p[x.type] = x.value; });
+        out.push(Math.round((Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - t) / 6e4));
+      }
+      sigCache.set(tz, out.join(","));
+    }
+    return sigCache.get(tz);
+  }
+  const groupKey = (cc, tz) => cc + "|" + sig(tz);
+  function countryGroups(cc) {
+    const ks = new Map();
+    (zonesByCc.get(cc) || []).forEach(tz => { const k = groupKey(cc, tz); if (!ks.has(k)) ks.set(k, tz); });
+    return ks;
+  }
+
+  // Turn found names into clocks: one per country and time zone group, in order of first mention.
+  function planImport(text) {
+    const hits = findPlaces(text);
+    const existing = new Map();
+    [localId, ...selected].forEach(id => {
+      const c = resolve(id);
+      if (c && c.cc) { const k = groupKey(c.cc, c.tz); if (!existing.has(k)) existing.set(k, c); }
+    });
+    const placeCcs = new Set(hits.filter(h => h.c.kind !== "country").map(h => h.c.cc));
+    const groups = new Map(), rows = [], seen = new Set();
+    hits.forEach(h => {
+      const c = h.c, label = norm(h.text);
+      let k, tz = c.tz;
+      if (c.kind === "country") {
+        const gs = countryGroups(c.cc);
+        if (gs.size !== 1) {
+          if (!seen.has(label)) { seen.add(label); rows.push({ text: h.text, cc: c.cc, st: placeCcs.has(c.cc) ? "multiPlaces" : "multi" }); }
+          return;
+        }
+        const only = [...gs][0];
+        k = only[0]; tz = only[1];
+      } else k = groupKey(c.cc, c.tz);
+      let g = groups.get(k);
+      if (!g) { g = { k, cc: c.cc, tz, cities: [], first: h }; groups.set(k, g); }
+      if (c.kind === "city" && !g.cities.includes(c.city)) g.cities.push(c.city);
+      if (!seen.has(label)) { seen.add(label); rows.push({ text: h.text, g, first: g.first === h }); }
+    });
+    for (const g of groups.values()) {
+      const s = g.k.slice(g.k.indexOf("|") + 1);
+      const primary = CITIES.find(x => x.cc === g.cc && sig(x.tz) === s);
+      g.rep = (primary && g.cities.includes(primary)) ? primary : (g.cities[0] || primary || zoneEntry(g.tz));
+      g.have = existing.get(g.k) || null;
+    }
+    return { rows, groups: [...groups.values()].filter(g => g.rep) };
+  }
+
+  // ---- import sheet ----
+  const importBtn = document.getElementById("importBtn"), importFile = document.getElementById("importFile");
+  const impOverlay = document.getElementById("impOverlay"), impDrop = document.getElementById("impDrop");
+  const impThumbs = document.getElementById("impThumbs"), impStatus = document.getElementById("impStatus"), impStatusText = document.getElementById("impStatusText");
+  const impSum = document.getElementById("impSum"), impList = document.getElementById("impList");
+  const impText = document.getElementById("impText"), impTextLabel = document.getElementById("impTextLabel");
+  const impStop = document.getElementById("impStop"), impFromText = document.getElementById("impFromText"), impDone = document.getElementById("impDone");
+  let thumbUrls = [], ocrRun = 0;
+
+  function openImport() {
+    impOverlay.hidden = false;
+    impDrop.focus();
+  }
+  function closeImport() {
+    stopOcr();
+    impOverlay.hidden = true;
+    importBtn.focus();
+  }
+  importBtn.addEventListener("click", openImport);
+  impDrop.addEventListener("click", () => { importFile.value = ""; importFile.click(); });
+  importFile.addEventListener("change", () => { const f = [...importFile.files]; if (f.length) runOcr(f); });
+  impStop.addEventListener("click", stopOcr);
+  impDone.addEventListener("click", closeImport);
+  document.getElementById("impClose").addEventListener("click", closeImport);
+  impOverlay.addEventListener("click", e => { if (e.target === impOverlay) closeImport(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !impOverlay.hidden) closeImport(); });
+  impFromText.addEventListener("click", () => {
+    if (!impText.value.trim()) { setStatus(L("impNeedText"), true); impText.focus(); return; }
+    setStatus("");
+    applyImport(impText.value);
+  });
+  ["dragenter", "dragover"].forEach(t => impDrop.addEventListener(t, e => { e.preventDefault(); impDrop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => impDrop.addEventListener(t, () => impDrop.classList.remove("over")));
+  impDrop.addEventListener("drop", e => {
+    e.preventDefault();
+    const f = [...(e.dataTransfer?.files || [])].filter(x => x.type.startsWith("image/"));
+    if (f.length) runOcr(f);
+  });
+  document.addEventListener("paste", e => {
+    if (impOverlay.hidden) return;
+    const f = [...(e.clipboardData?.files || [])].filter(x => x.type.startsWith("image/"));
+    if (f.length) { e.preventDefault(); runOcr(f); }
+  });
+
+  function setStatus(text, isErr, busy) {
+    impStatus.hidden = !text;
+    impStatus.classList.toggle("err", !!isErr);
+    impStatus.classList.toggle("busy", !!busy);
+    impStatusText.textContent = text || "";
+  }
+  function setBusy(on) {
+    impStop.hidden = !on;
+    impFromText.disabled = on; impDrop.disabled = on; impText.disabled = on;
+  }
+
+  // ---- text recognition (Tesseract.js, loaded on first use; language data ships with this page) ----
+  const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/";
+  const TESS_CORE = "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1";
+  let tessLoad = null, ocrWorker = null, onOcrLog = () => {};
+  function loadTess() {
+    if (window.Tesseract) return Promise.resolve();
+    if (!tessLoad) tessLoad = new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = TESS + "tesseract.min.js";
+      s.onload = res;
+      s.onerror = () => { tessLoad = null; rej(new Error("script")); };
+      document.head.appendChild(s);
+    });
+    return tessLoad;
+  }
+  async function getWorker() {
+    await loadTess();
+    if (!ocrWorker) {
+      // The language files are published as tessdata/<lang>.traineddata.wasm (gzip bytes; artifacts
+      // serve no .gz), so the worker's fetch is pointed at that name before Tesseract loads.
+      const boot = new Blob([
+        "const f = self.fetch.bind(self);\n" +
+        "self.fetch = (u, o) => f(String(u).replace(/\\.traineddata\\.gz$/, '.traineddata.wasm'), o);\n" +
+        "importScripts(" + JSON.stringify(TESS + "worker.min.js") + ");\n",
+      ], { type: "text/javascript" });
+      ocrWorker = Tesseract.createWorker(["chi_tra", "eng"], 1, {
+        workerPath: URL.createObjectURL(boot),
+        workerBlobURL: false,
+        corePath: TESS_CORE,
+        langPath: new URL("tessdata", document.baseURI).href,
+        cacheMethod: "none",
+        logger: m => onOcrLog(m),
+        errorHandler: () => {},
+      }).catch(e => { ocrWorker = null; throw e; });
+    }
+    return ocrWorker;
+  }
+  function stopOcr() {
+    if (!ocrRun) return;
+    ocrRun = 0;
+    const w = ocrWorker;
+    ocrWorker = null;
+    if (w) w.then(x => x.terminate()).catch(() => {});
+    setBusy(false);
+    setStatus("");
+  }
+  async function loadImage(file) {
+    if (window.createImageBitmap) { try { return await createImageBitmap(file); } catch (e) {} }
+    return new Promise((res, rej) => {
+      const u = URL.createObjectURL(file), im = new Image();
+      im.onload = () => { URL.revokeObjectURL(u); res(im); };
+      im.onerror = () => { URL.revokeObjectURL(u); rej(new Error("image")); };
+      im.src = u;
+    });
+  }
+  // Small screenshots read far better enlarged and in grey.
+  async function prepImage(file) {
+    const img = await loadImage(file);
+    const w = img.width, h = img.height;
+    let scale = w < 1200 ? 2 : w < 1800 ? 1.5 : 1;
+    if (w * h * scale * scale > 12e6) scale = Math.max(1, Math.sqrt(12e6 / (w * h)));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const px = ctx.getImageData(0, 0, cv.width, cv.height), d = px.data;
+    for (let i = 0; i < d.length; i += 4) { const y = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000; d[i] = d[i + 1] = d[i + 2] = y; }
+    ctx.putImageData(px, 0, 0);
+    return cv;
+  }
+
+  async function runOcr(files) {
+    if (ocrRun) return;
+    const run = ocrRun = Date.now();
+    thumbUrls.forEach(u => URL.revokeObjectURL(u)); thumbUrls = [];
+    impThumbs.textContent = "";
+    files.forEach(f => { const u = URL.createObjectURL(f); thumbUrls.push(u); const im = document.createElement("img"); im.src = u; im.alt = f.name; impThumbs.appendChild(im); });
+    impSum.hidden = true; impList.textContent = "";
+    setBusy(true);
+    let idx = 0;
+    onOcrLog = m => {
+      if (ocrRun !== run) return;
+      const pct = Math.round((m.progress || 0) * 100);
+      if (m.status === "recognizing text") setStatus(L("ocrReading", idx + 1, files.length, pct), false, true);
+      else if (/language/.test(m.status)) setStatus(L("ocrLang"), false, true);
+      else setStatus(L("ocrEngine"), false, true);
+    };
+    setStatus(L("ocrEngine"), false, true);
+    const texts = [];
+    try {
+      const worker = await getWorker();
+      for (idx = 0; idx < files.length; idx++) {
+        if (ocrRun !== run) return;
+        let canvas;
+        try { canvas = await prepImage(files[idx]); } catch (e) { texts.push(""); continue; }
+        setStatus(L("ocrReading", idx + 1, files.length, 0), false, true);
+        const { data } = await worker.recognize(canvas);
+        texts.push((data && data.text || "").trim());
+      }
+    } catch (e) {
+      if (ocrRun !== run) return;
+      ocrRun = 0; ocrWorker = null;
+      setBusy(false);
+      setStatus(texts.length ? L("ocrFailedPart") : L("ocrFailed"), true);
+      if (!texts.length) return;
+    }
+    if (ocrRun !== run && ocrRun !== 0) return;
+    ocrRun = 0;
+    setBusy(false);
+    const text = texts.filter(Boolean).join("\n\n");
+    impText.value = text;
+    impTextLabel.textContent = L("ocrText");
+    if (!text) { setStatus(L("ocrNoText"), true); return; }
+    if (!impStatus.classList.contains("err")) setStatus("");
+    applyImport(text);
+  }
+
+  function applyImport(text) {
+    const { rows, groups } = planImport(text);
+    const prev = selected.slice();
+    let added = 0;
+    groups.forEach(g => {
+      if (g.have || selected.includes(g.rep.id) || g.rep.id === localId) return;
+      selected.push(g.rep.id); g.added = true; added++;
+    });
+    if (added) {
+      save(); render();
+      undo = { prev };
+      toastMsg.textContent = L("imported", added);
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.hidden = true; undo = null; }, 8000);
+    }
+    const now = new Date();
+    impSum.hidden = false;
+    impSum.textContent = rows.length ? L("impSum", added, rows.length) : L("impNone");
+    impList.textContent = "";
+    rows.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "imp-row";
+      row.innerHTML = '<span class="n"></span><span class="tag"></span>';
+      const n = row.querySelector(".n"), tag = row.querySelector(".tag");
+      n.textContent = r.text;
+      const sm = document.createElement("small");
+      let st;
+      if (r.g) {
+        const c = r.g.have || r.g.rep;
+        st = r.g.have ? "have" : (r.first && r.g.added ? "new" : "merged");
+        sm.textContent = (st === "merged" ? L("into") : "") + fullName(c) + L("sep") + gmt(info(c.tz, now).offset);
+      } else {
+        st = r.st;
+        sm.textContent = (lang === "en" ? (COUNTRY_EN[r.cc] || countryEn(r.cc)) : countryZh(r.cc)) + L("sep") + L(r.st === "multi" ? "multiNote" : "multiPlacesNote");
+      }
+      n.appendChild(sm);
+      tag.classList.add(st);
+      tag.textContent = L("st_" + st);
+      impList.appendChild(row);
+    });
+  }
+
+  // ---- picker ----
+  const overlay = document.getElementById("overlay"), search = document.getElementById("search"), list = document.getElementById("list");
+  const addBtn = document.getElementById("addBtn");
+  function openPicker() {
+    overlay.hidden = false; search.value = ""; renderList();
+    setTimeout(() => search.focus(), 20);
+  }
+  function closePicker() { overlay.hidden = true; addBtn.focus(); }
+  addBtn.addEventListener("click", openPicker);
+  document.getElementById("closeBtn").addEventListener("click", closePicker);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closePicker(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closePicker(); });
+  search.addEventListener("input", renderList);
+
+  function optButton(c, now) {
+    const i = info(c.tz, now);
+    const added = selected.includes(c.id) || c.id === localId;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "opt"; b.disabled = added;
+    b.dataset.tz = c.tz;
+    b.innerHTML = '<span class="n"></span><span class="t"></span>';
+    const n = b.querySelector(".n");
+    n.textContent = countryName(c);
+    const sm = document.createElement("small");
+    sm.textContent = added ? cityName(c) + L("sep") + L("added") : cityName(c);
+    n.appendChild(sm);
+    const t = b.querySelector(".t");
+    t.textContent = gmt(i.offset);
+    const bt = document.createElement("b"); bt.textContent = pad(i.h) + ":" + pad(i.mi); t.appendChild(bt);
+    b.addEventListener("click", () => {
+      selected.push(c.id); save(); render(); closePicker();
+      const r = cards.get(c.id); r && r.card.scrollIntoView({ behavior: reduce.matches ? "auto" : "smooth", block: "center" });
+    });
+    return b;
+  }
+
+  function renderList() {
+    const raw = search.value.trim();
+    const q = norm(raw);
+    const now = new Date();
+    list.textContent = "";
+    const frag = document.createDocumentFragment();
+    const label = t => { const g = document.createElement("div"); g.className = "group-label"; g.textContent = t; frag.appendChild(g); };
+    if (!q) {
+      REGIONS.forEach(r => {
+        const cs = CITIES.filter(c => region(c) === r);
+        if (cs.length) { label(L("regions")[r]); cs.forEach(c => frag.appendChild(optButton(c, now))); }
+      });
+      list.appendChild(frag);
+      return;
+    }
+    const score = c => c.cityKey.startsWith(q) ? 0 : c.cityKey.includes(q) ? 1 : c.countryKey.startsWith(q) ? 2 : c.key.includes(q) ? 3 : -1;
+    const hits = CITIES.map(c => [score(c), c]).filter(x => x[0] >= 0).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+    if (hits.length) { label(L("cities")); hits.forEach(c => frag.appendChild(optButton(c, now))); }
+
+    // Every other tzdata zone that matches (so each region of a country is reachable), then any remaining zone name.
+    const shown = new Set(hits.map(c => c.tz));
+    const zones = [];
+    const consider = tz => {
+      if (shown.has(tz)) return;
+      const c = zoneEntry(tz);
+      if (!c || shown.has(c.tz) || !c.key.includes(q)) return;
+      shown.add(c.tz); zones.push(c);
+    };
+    for (const tz of ZONES.keys()) consider(tz);
+    allZones.forEach(tz => { if (!ZONES.has(tz)) consider(tz); });
+    if (zones.length) { label(L("otherZones")); zones.slice(0, 80).forEach(c => frag.appendChild(optButton(c, now))); }
+
+    if (!hits.length && !zones.length) {
+      const n = document.createElement("div"); n.className = "none";
+      n.textContent = L("none", raw);
+      frag.appendChild(n);
+    }
+    list.appendChild(frag);
+  }
+
+  // ---- language toggle ----
+  const langBtn = document.getElementById("langBtn");
+  function applyLang() {
+    document.documentElement.lang = lang === "en" ? "en" : "zh-Hant";
+    document.title = L("title");
+    document.getElementById("appTitle").textContent = L("title");
+    document.querySelectorAll("#howto [data-k]").forEach(el => { el.textContent = L(el.dataset.k); });
+    langBtn.querySelectorAll("span").forEach(x => x.classList.toggle("on", x.dataset.l === lang));
+    langBtn.setAttribute("aria-label", L("langAria")); langBtn.title = L("langAria");
+    addBtn.setAttribute("aria-label", L("add")); addBtn.title = L("add");
+    document.getElementById("pickerTitle").textContent = L("add");
+    document.getElementById("closeBtn").setAttribute("aria-label", L("close"));
+    search.placeholder = L("search");
+    document.getElementById("undoBtn").textContent = L("undo");
+    importBtn.setAttribute("aria-label", L("importBtn")); importBtn.title = L("importBtn");
+    document.getElementById("impTitle").textContent = L("importBtn");
+    document.getElementById("impClose").setAttribute("aria-label", L("close"));
+    document.getElementById("impDropTitle").textContent = L("dropTitle");
+    document.getElementById("impDropHint").textContent = L("dropHint");
+    document.getElementById("impPrivacy").textContent = L("privacy");
+    impTextLabel.textContent = impText.value ? L("ocrText") : L("pasteLabel");
+    impText.placeholder = L("pastePh");
+    impStop.textContent = L("stop"); impFromText.textContent = L("fromText"); impDone.textContent = L("done");
+    // rebuild cards so every name and label switches
+    for (const r of cards.values()) r.card.remove();
+    cards.clear();
+    render();
+    if (!overlay.hidden) renderList();
+  }
+  langBtn.addEventListener("click", () => {
+    lang = lang === "en" ? "zh" : "en";
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    toast.hidden = true;
+    applyLang();
+  });
+
+  applyLang();
+  syncCloud();
+  setTimeout(loop, 1000 - (Date.now() % 1000) + 8);
+})();
+</script>
+</body>
+</html>
