@@ -106,11 +106,11 @@ h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: .12em; tex
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
   color-scheme: dark;
 }
-/* Sunrise/sunset/moonrise/moonset: one fixed soft grey-to-white sky (grey top, white bottom). */
+/* Sunrise/sunset/moonrise/moonset: a blue-grey sky over the top ~70% fading to cream at the bottom ~30%. */
 .card.is-twilight {
-  --tw-dark: #c3c6ca; --tw-light: #f6f6f5;
+  --tw-dark: #B4C4D6; --tw-light: #F8F7F3;
   --tile: #262a30; --tile-hi: #2e3239; --tile-ink: #efeee8; --hinge: #0b0c0d;
-  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 26%, 40%, var(--tw-light) 78%, var(--tw-light) 100%);
+  background: linear-gradient(180deg, var(--tw-dark) 0%, var(--tw-dark) 50%, var(--tw-light) 82%, var(--tw-light) 100%);
 }
 .card.is-twilight .card-head { --ink: #1c1f24; --muted: #3c424b; --chip: rgba(255,255,255,.35); color: var(--ink); }
 .card.is-twilight .date { --ink: #1c1f24; --muted: #5f6670; --surface: var(--tw-light); --moon: #c8b98c; color: var(--ink); border-top-color: rgba(28,31,36,.14); }
